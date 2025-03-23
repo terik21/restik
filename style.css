@@ -40,3 +40,7 @@ input, button {
 .content input { 
     width: 300px; 
 }
+
+.tab { display: none; }
+.tab.active { display: block; }
+

@@ -3,33 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Админ панель</title>
+    <title>Дашборд</title>
     <link rel="stylesheet" href="style.css">
+    <script defer src="tabs.js"></script>
+    <style>
+        #register-form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+        #register-form label, #register-form input, #register-form button {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 <body>
-
     <div class="app-container">
         <aside class="sidebar">
-            <p>Администратор</p>
-            <p>Истрапов Иван Сергеевич</p>
-            <p>Личная смена открыта<br>в 10:00</p>
-            <button>Закрыть личную смену</button>
-            <button>Личная страница</button>
-            <button>Регистрация работника</button>
-            <button>Схема зала</button>
-            <button>Отчеты</button>
-            <button>Меню</button>
-        </aside>
+            <p>Официант</p>
+            <p>Иванов Иван Иванович</p>
+            <p>Личная смена открыта в 10:30</p>
+            <button class="tab-button" data-tab="shifts">Закрыть личную смену</button>
+            <button class="tab-button" data-tab="profile">Личная страница</button>
+            <button class="tab-button" data-tab="register">Регистрация пользователя</button>
+            <button class="tab-button" data-tab="orders">Заказы</button>
+            <button class="tab-button" data-tab="hall">Схема зала</button>
+            <button class="tab-button" data-tab="menu">Меню</button>
+            </aside>
         <main class="content">
-            <h2>Регистрация работника</h2>
-            <input type="text" placeholder="Должность"><br>
-            <input type="text" placeholder="ФИО"><br>
-            <input type="text" placeholder="4-значный код работника"><br>
-            <input type="text" placeholder="4-значный код администратора"><br>
-            <button>Подтвердить</button>
+            <div id="shifts" class="tab active">
+                <h2>Смены</h2>
+                <p>Здесь отображаются смены работника.</p>
+            </div>
+            <div id="profile" class="tab">
+                <h2>Личная страница</h2>
+                <p>Информация о пользователе.</p>
+            </div>
+            <div id="register" class="tab">
+                <h2>Регистрация пользователя</h2>
+                <form id="register-form">
+                    <label for="position">Должность:</label>
+                    <input type="text" id="position" name="position" required>
+                    
+                    <label for="fullname">ФИО:</label>
+                    <input type="text" id="fullname" name="fullname" required>
+                    
+                    <label for="worker-code">4-значный код работника:</label>
+                    <input type="number" id="worker-code" name="worker-code" required minlength="4" maxlength="4">
+                    
+                    <label for="admin-code">4-значный код админа:</label>
+                    <input type="number" id="admin-code" name="admin-code" required minlength="4" maxlength="4">
+                    
+                    <button type="submit">Зарегистрировать</button>
+                </form>
+            </div>
+            <div id="orders" class="tab">
+                <h2>Заказы</h2>
+                <p>Здесь будут заказы.</p>
+            </div>
+            <div id="hall" class="tab">
+                <h2>Схема зала</h2>
+                <p>Здесь будет схема зала.</p>
+            </div>
+            <div id="menu" class="tab">
+                <h2>Меню</h2>
+                <p>Здесь будет меню.</p>
+            </div>
         </main>
     </div>
-
-    <script src="dashboard.js"></script> <!-- Пока пустой, если нужно -->
 </body>
 </html>
