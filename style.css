@@ -44,3 +44,58 @@ input, button {
 .tab { display: none; }
 .tab.active { display: block; }
 
+#register-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+#register-form label, 
+#register-form input, 
+#register-form select, 
+#register-form button {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+/* Стили для выпадающего списка */
+#register-form select {
+    background-color: #fff;
+    appearance: none; /* Убираем стандартный стиль браузера */
+    cursor: pointer;
+}
+
+/* Добавляем стрелочку вниз для селекта */
+#register-form select::-ms-expand {
+    display: none;
+}
+
+/* Эффект фокуса */
+#register-form input:focus,
+#register-form select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+.user-info {
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 15px; /* Чтобы кнопки не залезали */
+    text-align: center;
+}
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}

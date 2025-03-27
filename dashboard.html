@@ -6,27 +6,11 @@
     <title>Дашборд</title>
     <link rel="stylesheet" href="style.css">
     <script defer src="tabs.js"></script>
-    <style>
-        #register-form {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            max-width: 300px;
-            margin: 0 auto;
-        }
-        #register-form label, #register-form input, #register-form button {
-            width: 100%;
-            margin-bottom: 10px;
-        }
-    </style>
 </head>
 <body>
     <div class="app-container">
         <aside class="sidebar">
-            <p>Официант</p>
-            <p>Иванов Иван Иванович</p>
-            <p>Личная смена открыта в 10:30</p>
+            <div id="user-info" class="user-info"></div>
             <button class="tab-button" data-tab="shifts">Закрыть личную смену</button>
             <button class="tab-button" data-tab="profile">Личная страница</button>
             <button class="tab-button" data-tab="register">Регистрация пользователя</button>
@@ -47,7 +31,12 @@
                 <h2>Регистрация пользователя</h2>
                 <form id="register-form">
                     <label for="position">Должность:</label>
-                    <input type="text" id="position" name="position" required>
+                    <select id="position" name="position" required>
+                        <option value="Администратор">Администратор</option>
+                        <option value="Менеджер">Менеджер</option>
+                        <option value="Повар">Повар</option>
+                        <option value="Официант">Официант</option>
+                    </select>
                     
                     <label for="fullname">ФИО:</label>
                     <input type="text" id="fullname" name="fullname" required>
