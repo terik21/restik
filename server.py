@@ -3,7 +3,7 @@ import sqlite3
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # Разрешает запросы с фронта
+CORS(app, resources={r"/*": {"origins": "*"}}) # Разрешает запросы с фронта
 
 def connect_db():
     return sqlite3.connect("database.db", check_same_thread=False)
