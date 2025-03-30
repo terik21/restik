@@ -3,7 +3,7 @@ import sqlite3
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:8000"}}) # Разрешает запросы с фронта
+CORS(app, resources={r"/*": {"origins": "http://localhost:8000"}})   # Разрешает запросы с фронта
 
 def connect_db():
     return sqlite3.connect("database.db", check_same_thread=False)
@@ -68,6 +68,9 @@ def add_dish():
         db.execute("INSERT INTO dishes (name, price, category_id) VALUES (?, ?, ?)", (name, price, category_id))
         db.commit()
     return jsonify({"message": "Блюдо добавлено"}), 201
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5001)
 
 # Регистрация пользователя
 @app.route('/register', methods=['POST'])
