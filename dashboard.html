@@ -56,30 +56,86 @@
             </div>
             <div id="hall" class="tab">
                 <h2>Схема зала</h2>
-                <p>Здесь будет схема зала.</p>
+                <div class="hall-layout">
+                    <div class="table" data-table="1">1</div>
+                    <div class="table" data-table="2">2</div>
+                    <div class="table" data-table="3">3</div>
+                    <div class="table" data-table="4">4</div>
+                    <div class="table" data-table="5">5</div>
+                    <div class="table" data-table="6">6</div>
+                    <div class="table" data-table="7">7</div>
+                    <div class="table" data-table="8">8</div>
+                    <div class="table" data-table="9">9</div>
+                </div>
+
+                <!-- Форма бронирования стола -->
+                <div id="reservation-modal" class="modal-overlay">
+                    <div class="modal-content">
+                        <button class="close-modal" onclick="closeReservationModal()">&times;</button>
+                        <div id="reservation-container">
+                            <h3>Бронирование стола №<span id="selected-table-number"></span></h3>
+                            <form id="reservation-form">
+                                <label for="guest-name">Фамилия гостя:</label>
+                                <input type="text" id="guest-name" required>
+                                
+                                <label for="reservation-date">Дата и время:</label>
+                                <input type="datetime-local" id="reservation-date" required>
+                                
+                                <input type="hidden" id="table-number">
+                                <button type="submit">Забронировать</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Форма создания заказа -->
+                <div id="order-modal" class="modal-overlay">
+                    <div class="modal-content">
+                        <button class="close-modal" onclick="closeOrderModal()">&times;</button>
+                        <div id="order-container" class="order-form">
+                            <h3>Создание заказа для стола №<span id="order-table-number"></span></h3>
+                            <div id="order-categories" class="category-container">
+                                <!-- Категории будут добавлены динамически -->
+                            </div>
+                            <div id="order-summary" style="display: none;">
+                                <h4>Выбранные блюда:</h4>
+                                <div id="selected-items"></div>
+                                <div class="total-price">Итого: <span id="total-price">0</span> руб.</div>
+                                <button id="submit-order">Оформить заказ</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div id="menu" class="tab">
-    <h2>Меню</h2>
-            <div id="category-list" class="category-container"></div>
-            <!-- Форма добавления разделов (по умолчанию скрыта) -->
-            <form id="add-category-form" style="display: none;">
-                <label for="category-name">Название раздела:</label>
-                <input type="text" id="category-name" required>
-                <button type="submit">Добавить раздел</button>
-            </form>
+                <h2>Меню</h2>
+                <div id="category-list" class="category-container">
+                    <!-- Категории будут добавляться динамически -->
+                </div>
 
-            <!-- Форма добавления блюд (по умолчанию скрыта) -->
-            <form id="add-dish-form" style="display: none;">
-                <label for="dish-name">Название блюда:</label>
-                <input type="text" id="dish-name" required>
+                <!-- Форма добавления разделов -->
+                <form id="add-category-form" style="display: none;">
+                    <label for="category-name">Название раздела:</label>
+                    <input type="text" id="category-name" required>
+                    <button type="submit">Добавить раздел</button>
+                </form>
 
-                <label for="dish-price">Стоимость блюда:</label>
-                <input type="number" id="dish-price" required>
+                <!-- Контейнер для отображения блюд -->
+                <div id="dish-container" style="display: none;">
+                    <h3 id="selected-category-name"></h3>
+                    <div id="dish-list"></div>
 
-                <input type="hidden" id="parent-category-id">
-                <button type="submit">Добавить блюдо</button>
-            </form>
-        </div>
+                    <!-- Форма добавления блюд -->
+                    <form id="add-dish-form" style="display: none;">
+                        <label for="dish-name">Название блюда:</label>
+                        <input type="text" id="dish-name" required>
+                        <label for="dish-price">Стоимость блюда:</label>
+                        <input type="number" id="dish-price" required>
+                        <input type="hidden" id="parent-category-id">
+                        <button type="submit">Добавить блюдо</button>
+                    </form>
+                </div>
+            </div>
         </main>
     </div>
 </body>
