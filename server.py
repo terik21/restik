@@ -63,6 +63,24 @@ with connect_db() as db:
     )''')
     db.commit()
 
+# Обновляем структуру таблицы orders при запуске
+with connect_db() as db:
+    cursor = db.cursor()
+    
+    # Проверяем существование колонок перед их добавлением
+    cursor.execute("PRAGMA table_info(orders)")
+    existing_columns = [column[1] for column in cursor.fetchall()]
+    
+    # Добавляем колонки только если их нет
+    if 'payment_method' not in existing_columns:
+        db.execute('ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT NULL')
+    if 'paid_amount' not in existing_columns:
+        db.execute('ALTER TABLE orders ADD COLUMN paid_amount REAL DEFAULT NULL')
+    if 'paid_at' not in existing_columns:
+        db.execute('ALTER TABLE orders ADD COLUMN paid_at DATETIME DEFAULT NULL')
+    
+    db.commit()
+
 # Добавление блюда
 @app.route('/categories', methods=['GET'])
 def get_categories():
@@ -135,13 +153,28 @@ def register():
     worker_code = data["worker_code"]
     admin_code = data["admin_code"]
 
-    if admin_code != '4321':
-        return jsonify({"error": "Неверный код админа"}), 403
-
     with connect_db() as db:
         cursor = db.cursor()
-        cursor.execute("INSERT INTO users (position, fullname, worker_code, admin_code) VALUES (?, ?, ?, ?)",
-                       (position, fullname, worker_code, admin_code))
+        # Проверяем существование администратора с указанным кодом
+        cursor.execute("""
+            SELECT id FROM users 
+            WHERE worker_code = ? 
+            AND position IN ('Администратор')
+        """, (admin_code,))
+        admin = cursor.fetchone()
+
+        if not admin:
+            return jsonify({"error": "Неверный код администратора"}), 403
+
+        # Проверяем, не занят ли код работника
+        cursor.execute("SELECT id FROM users WHERE worker_code = ?", (worker_code,))
+        if cursor.fetchone():
+            return jsonify({"error": "Этот код работника уже используется"}), 400
+
+        cursor.execute("""
+            INSERT INTO users (position, fullname, worker_code) 
+            VALUES (?, ?, ?)""",
+            (position, fullname, worker_code))
         db.commit()
 
     return jsonify({"message": "Пользователь зарегистрирован"}), 201
@@ -271,7 +304,7 @@ def cancel_reservation(table_number):
         cursor = db.cursor()
         cursor.execute("""
             SELECT position FROM users 
-            WHERE worker_code = ? AND (position = 'Администратор' OR position = 'Менеджер')
+            WHERE worker_code = ? AND (position = 'Администратор' OR позиция = 'Менеджер')
         """, (admin_code,))
         user = cursor.fetchone()
         
@@ -382,6 +415,123 @@ def get_table_orders(table_number):
         "status": o[3],
         "items": o[4].split(',') if o[4] else []
     } for o in orders]), 200
+
+@app.route('/all-orders', methods=['GET'])
+def get_all_orders():
+    with connect_db() as db:
+        cursor = db.cursor()
+        cursor.execute("""
+            SELECT o.id, o.table_number, o.created_at, o.total_price, o.status,
+                   GROUP_CONCAT(oi.quantity || 'x ' || oi.dish_name) as items
+            FROM orders o
+            LEFT JOIN order_items oi ON o.id = oi.order_id
+            WHERE o.status = 'active'
+            GROUP BY o.id
+            ORDER BY o.created_at DESC
+        """)
+        orders = cursor.fetchall()
+        
+    return jsonify([{
+        "id": o[0],
+        "table_number": o[1],
+        "created_at": o[2],
+        "total_price": o[3],
+        "status": o[4],
+        "items": o[5].split(',') if o[5] else []
+    } for o in orders]), 200
+
+@app.route('/order-details/<int:order_id>', methods=['GET'])
+def get_order_details(order_id):
+    with connect_db() as db:
+        cursor = db.cursor()
+        cursor.execute("""
+            SELECT o.id, o.table_number, o.created_at, o.total_price,
+                   oi.dish_name, oi.price, oi.quantity
+            FROM orders o
+            LEFT JOIN order_items oi ON o.id = oi.order_id
+            WHERE o.id = ?
+        """, (order_id,))
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return jsonify({"error": "Заказ не найден"}), 404
+            
+        order = {
+            "id": rows[0][0],
+            "table_number": rows[0][1],
+            "created_at": rows[0][2],
+            "total_price": rows[0][3],
+            "items": [{
+                "name": row[4],
+                "price": row[5],
+                "quantity": row[6]
+            } for row in rows if row[4]]
+        }
+        
+        return jsonify(order), 200
+
+@app.route('/cancel-order/<int:order_id>', methods=['POST'])
+def cancel_order(order_id):
+    data = request.json
+    worker_code = data.get('worker_code')
+    
+    with connect_db() as db:
+        cursor = db.cursor()
+        # Проверяем права пользователя
+        cursor.execute("""
+            SELECT position FROM users 
+            WHERE worker_code = ? AND (position IN ('Администратор', 'Менеджер', 'Официант'))
+        """, (worker_code,))
+        user = cursor.fetchone()
+        
+        if not user:
+            return jsonify({"error": "Недостаточно прав для отмены заказа"}), 403
+            
+        cursor.execute("""
+            UPDATE orders 
+            SET status = 'cancelled'
+            WHERE id = ? AND status = 'active'
+        """, (order_id,))
+        db.commit()
+        
+        if cursor.rowcount > 0:
+            return jsonify({"message": "Заказ отменен"}), 200
+        return jsonify({"error": "Заказ не найден или уже отменен"}), 404
+
+@app.route('/process-payment/<int:order_id>', methods=['POST'])
+def process_payment(order_id):
+    data = request.json
+    amount = data.get('amount')
+    payment_method = data.get('payment_method')
+    
+    with connect_db() as db:
+        cursor = db.cursor()
+        # Проверяем существование и статус заказа
+        cursor.execute("""
+            SELECT total_price, status 
+            FROM orders 
+            WHERE id = ?
+        """, (order_id,))
+        order = cursor.fetchone()
+        
+        if not order:
+            return jsonify({"error": "Заказ не найден"}), 404
+        
+        if order[1] != 'active':
+            return jsonify({"error": "Заказ уже оплачен или отменен"}), 400
+            
+        # Обновляем статус заказа на 'paid'
+        cursor.execute("""
+            UPDATE orders 
+            SET status = 'paid', 
+                payment_method = ?,
+                paid_amount = ?,
+                paid_at = datetime('now')
+            WHERE id = ?
+        """, (payment_method, amount, order_id))
+        db.commit()
+        
+    return jsonify({"message": "Оплата прошла успешно"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

@@ -45,6 +45,213 @@ function updateOrderSummary() {
     totalPriceSpan.textContent = total;
 }
 
+// Add these functions at the top with other utility functions
+
+function closeOrdersModal() {
+    document.getElementById('orders-modal').style.display = 'none';
+}
+
+function updateOrdersSummary() {
+    const selectedItems = document.getElementById('orders-selected-items');
+    const totalPriceSpan = document.getElementById('orders-total-price');
+    let total = 0;
+    let orderItems = [];
+
+    document.querySelectorAll('#orders-categories .order-dish input[type="number"]').forEach(input => {
+        const quantity = parseInt(input.value);
+        if (quantity > 0) {
+            const name = input.dataset.name;
+            const price = parseFloat(input.dataset.price);
+            const itemTotal = price * quantity;
+            total += itemTotal;
+            orderItems.push(`${quantity}x ${name} - ${itemTotal} руб.`);
+        }
+    });
+
+    selectedItems.innerHTML = orderItems.join('<br>');
+    totalPriceSpan.textContent = total;
+}
+
+async function loadOrders() {
+    const ordersContainer = document.getElementById('active-orders-list');
+    
+    try {
+        const response = await fetch('http://localhost:5001/all-orders');
+        const orders = await response.json();
+        
+        ordersContainer.innerHTML = orders.map(order => `
+            <div class="order-item" data-order-id="${order.id}" onclick="showOrderDetails(${order.id})">
+                <div class="order-header">
+                    <strong>Стол ${order.table_number}</strong>
+                    <span>${new Date(order.created_at).toLocaleTimeString()}</span>
+                </div>
+                <div class="order-summary">
+                    Позиций: ${order.items.length} | Сумма: ${order.total_price} руб.
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Ошибка при загрузке заказов:', error);
+    }
+}
+
+function showOrderDetails(orderId) {
+    // Remove selection from all orders
+    document.querySelectorAll('.order-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+    
+    // Add selection to clicked order
+    const selectedOrder = document.querySelector(`.order-item[data-order-id="${orderId}"]`);
+    if (selectedOrder) {
+        selectedOrder.classList.add('selected');
+    }
+
+    // Get and show order details
+    fetch(`http://localhost:5001/order-details/${orderId}`)
+        .then(response => response.json())
+        .then(order => {
+            const detailsContainer = document.getElementById('order-items-list');
+            detailsContainer.innerHTML = `
+                <h4>Заказ #${order.id} - Стол ${order.table_number}</h4>
+                <div class="order-time">Создан: ${new Date(order.created_at).toLocaleString()}</div>
+                <div class="order-items">
+                    ${order.items.map(item => `
+                        <div class="order-detail-item">
+                            ${item.quantity}x ${item.name} - ${item.price * item.quantity} руб.
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="order-total">
+                    <strong>Итого: ${order.total_price} руб.</strong>
+                </div>
+                <div class="order-actions">
+                    <button class="pay-order-btn" onclick="showPaymentOptions(${order.id}, ${order.total_price})">Оплатить</button>
+                    <button class="cancel-order-btn" onclick="cancelOrder(${order.id})">Отменить заказ</button>
+                </div>
+            `;
+        })
+        .catch(error => console.error('Ошибка при загрузке деталей заказа:', error));
+}
+
+async function showPaymentOptions(orderId, totalAmount) {
+    const paymentMethod = confirm('Выберите способ оплаты:\nOK - Картой\nОтмена - Наличными');
+    
+    if (paymentMethod) {
+        // Оплата картой
+        if (confirm('Подтвердите оплату картой')) {
+            await processPayment(orderId, totalAmount, 'card');
+        }
+    } else {
+        // Оплата наличными
+        const cashAmount = prompt(`Введите сумму полученных наличных (сумма заказа: ${totalAmount} руб.):`);
+        if (cashAmount) {
+            const amount = parseFloat(cashAmount);
+            if (amount >= totalAmount) {
+                const change = amount - totalAmount;
+                if (change > 0) {
+                    alert(`Сдача: ${change.toFixed(2)} руб.`);
+                }
+                await processPayment(orderId, totalAmount, 'cash');
+            } else {
+                alert('Недостаточная сумма!');
+            }
+        }
+    }
+}
+
+async function processPayment(orderId, amount, method) {
+    try {
+        const response = await fetch(`http://localhost:5001/process-payment/${orderId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                amount: amount,
+                payment_method: method
+            })
+        });
+
+        if (response.ok) {
+            alert('Оплата прошла успешно');
+            await loadOrders(); // Перезагрузить список заказов
+            document.getElementById('order-items-list').innerHTML = '<p>Выберите заказ для просмотра деталей</p>';
+        } else {
+            const error = await response.json();
+            alert(error.error || 'Ошибка при оплате');
+        }
+    } catch (error) {
+        console.error('Ошибка при обработке оплаты:', error);
+        alert('Ошибка при обработке оплаты');
+    }
+}
+
+async function cancelOrder(orderId) {
+    if (!confirm('Вы уверены, что хотите отменить заказ?')) {
+        return;
+    }
+
+    const workerCode = prompt('Введите ваш код для подтверждения отмены заказа:');
+    if (!workerCode) return;
+
+    try {
+        const response = await fetch(`http://localhost:5001/cancel-order/${orderId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ worker_code: workerCode })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            alert('Заказ успешно отменен');
+            await loadOrders();
+            document.getElementById('order-items-list').innerHTML = '<p>Выберите заказ для просмотра деталей</p>';
+        } else {
+            alert(result.error || 'Ошибка при отмене заказа');
+        }
+    } catch (error) {
+        console.error('Ошибка при отмене заказа:', error);
+        alert('Ошибка при отмене заказа');
+    }
+}
+
+// Move loadTableStatuses to the global scope
+async function loadTableStatuses() {
+    const tables = document.querySelectorAll('.table');
+    for (let table of tables) {
+        const tableNumber = table.dataset.table;
+        try {
+            const reservationResponse = await fetch(`http://localhost:5001/reservations/${tableNumber}`);
+            const reservations = await reservationResponse.json();
+            
+            const statusResponse = await fetch(`http://localhost:5001/table-status/${tableNumber}`);
+            const tableStatus = await statusResponse.json();
+
+            table.classList.remove('available', 'reserved', 'occupied');
+            
+            const now = new Date();
+            const hasActiveReservation = reservations.some(res => {
+                const resDate = new Date(res.date);
+                return resDate >= now;
+            });
+
+            if (tableStatus.status === 'occupied') {
+                table.classList.add('occupied');
+            } else if (hasActiveReservation) {
+                table.classList.add('reserved');
+            } else {
+                table.classList.add('available');
+            }
+        } catch (error) {
+            console.error('Ошибка при загрузке статуса стола:', error);
+        }
+    }
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     const registerForm = document.getElementById("register-form");
 
@@ -365,15 +572,13 @@ document.addEventListener("DOMContentLoaded", function () {
             const userPosition = localStorage.getItem("position");
             const isAdmin = userPosition === "Администратор" || userPosition === "Менеджер";
 
-            // Добавляем контекстное меню для управления статусом стола
             if (!table.classList.contains('reserved')) {
                 const menuOptions = [
                     '2 - Отметить как занятый',
                     '3 - Отметить как свободный',
-                    '4 - Создать заказ'  // Новая опция
+                    '4 - Создать заказ'
                 ];
 
-                // Добавляем опцию бронирования только для админов и менеджеров
                 if (isAdmin) {
                     menuOptions.unshift('1 - Забронировать стол');
                 }
@@ -385,9 +590,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 if (action === '4') {
                     await showOrderForm(tableNumber);
-    
-                    // Добавляем обработчик отправки заказа
-                    document.getElementById('submit-order').addEventListener('click', async () => {
+                    // Удаляем старый обработчик и добавляем новый
+                    const submitBtn = document.getElementById('submit-order');
+                    const submitHandler = submitBtn.getAttribute('data-handler');
+                    if (submitHandler) {
+                        submitBtn.removeEventListener('click', window[submitHandler]);
+                    }
+
+                    const newHandler = async () => {
                         const items = [];
                         document.querySelectorAll('.order-dish input[type="number"]').forEach(input => {
                             const quantity = parseInt(input.value);
@@ -399,23 +609,23 @@ document.addEventListener("DOMContentLoaded", function () {
                                 });
                             }
                         });
-        
+
                         if (items.length === 0) {
                             alert('Добавьте хотя бы одно блюдо в заказ');
                             return;
                         }
-        
+
                         try {
                             const response = await fetch(`http://localhost:5001/create-order/${tableNumber}`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ items })
                             });
-        
+
                             if (response.ok) {
                                 alert('Заказ успешно создан');
                                 closeOrderModal();
-                                await loadTableStatuses();
+                                loadTableStatuses(); // Используем функцию из текущей области видимости
                             } else {
                                 alert('Ошибка при создании заказа');
                             }
@@ -423,7 +633,13 @@ document.addEventListener("DOMContentLoaded", function () {
                             console.error('Ошибка при отправке заказа:', error);
                             alert('Ошибка при создании заказа');
                         }
-                    });
+                    };
+
+                    // Сохраняем обработчик в window для возможности его удаления
+                    const handlerId = 'submitOrder_' + Date.now();
+                    window[handlerId] = newHandler;
+                    submitBtn.setAttribute('data-handler', handlerId);
+                    submitBtn.addEventListener('click', newHandler);
                     return;
                 }
 
@@ -725,6 +941,114 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Ошибка при создании заказа');
         }
     });
+});
+
+// Add this to your DOMContentLoaded event listener
+document.addEventListener('DOMContentLoaded', function() {
+    // ...existing code...
+
+    const createNewOrderBtn = document.getElementById('create-new-order');
+    if (createNewOrderBtn) {
+        createNewOrderBtn.addEventListener('click', async () => {
+            document.getElementById('orders-modal').style.display = 'flex';
+            const categoriesContainer = document.getElementById('orders-categories');
+            categoriesContainer.innerHTML = '';
+            
+            try {
+                const response = await fetch('http://localhost:5001/categories');
+                const categories = await response.json();
+                
+                for (const category of categories) {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = 'order-category';
+                    categoryDiv.innerHTML = `
+                        <h4>${category.name}</h4>
+                        <div class="order-dishes" data-category="${category.id}"></div>
+                    `;
+                    
+                    categoryDiv.querySelector('h4').addEventListener('click', async () => {
+                        const dishesContainer = categoryDiv.querySelector('.order-dishes');
+                        if (dishesContainer.style.display === 'none' || !dishesContainer.style.display) {
+                            if (!dishesContainer.hasAttribute('data-loaded')) {
+                                const dishesResponse = await fetch(`http://localhost:5001/dishes/${category.id}`);
+                                const dishes = await dishesResponse.json();
+                                
+                                dishesContainer.innerHTML = dishes.map(dish => `
+                                    <div class="order-dish">
+                                        <span>${dish.name} - ${dish.price} руб.</span>
+                                        <input type="number" min="0" value="0" 
+                                            data-name="${dish.name}" 
+                                            data-price="${dish.price}"
+                                            onchange="updateOrdersSummary()">
+                                    </div>
+                                `).join('');
+                                
+                                dishesContainer.setAttribute('data-loaded', 'true');
+                            }
+                            dishesContainer.style.display = 'block';
+                        } else {
+                            dishesContainer.style.display = 'none';
+                        }
+                    });
+                    
+                    categoriesContainer.appendChild(categoryDiv);
+                }
+                
+                document.getElementById('orders-summary').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Ошибка при загрузке категорий:', error);
+            }
+        });
+    }
+
+    // Add submit handler for new orders
+    document.getElementById('submit-new-order')?.addEventListener('click', async () => {
+        const tableNumber = document.getElementById('order-table-select').value;
+        if (!tableNumber) {
+            alert('Выберите номер стола');
+            return;
+        }
+
+        const items = [];
+        document.querySelectorAll('#orders-categories .order-dish input[type="number"]').forEach(input => {
+            const quantity = parseInt(input.value);
+            if (quantity > 0) {
+                items.push({
+                    name: input.dataset.name,
+                    price: parseFloat(input.dataset.price),
+                    quantity: quantity
+                });
+            }
+        });
+
+        if (items.length === 0) {
+            alert('Добавьте хотя бы одно блюдо в заказ');
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://localhost:5001/create-order/${tableNumber}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items })
+            });
+
+            if (response.ok) {
+                alert('Заказ успешно создан');
+                closeOrdersModal();
+                await loadOrders();
+            } else {
+                alert('Ошибка при создании заказа');
+            }
+        } catch (error) {
+            console.error('Ошибка при отправке заказа:', error);
+            alert('Ошибка при создании заказа');
+        }
+    });
+
+    // Load orders when switching to orders tab
+    document.querySelector('.tab-button[data-tab="orders"]')?.addEventListener('click', loadOrders);
 });
 
 

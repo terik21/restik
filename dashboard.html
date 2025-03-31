@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Дашборд</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo="> <!-- Add this line to suppress favicon request -->
     <link rel="stylesheet" href="style.css">
     <script defer src="tabs.js"></script>
 </head>
@@ -52,7 +53,53 @@
             </div>
             <div id="orders" class="tab">
                 <h2>Заказы</h2>
-                <p>Здесь будут заказы.</p>
+                <div class="orders-container">
+                    <div class="orders-list">
+                        <div id="active-orders-list"></div>
+                    </div>
+                    <div class="order-details">
+                        <div class="create-order-section">
+                            <button id="create-new-order" class="create-order-btn">Создать новый заказ</button>
+                        </div>
+                        <div id="selected-order-details">
+                            <h3>Детали заказа</h3>
+                            <div id="order-items-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ...rest of existing order modal code... -->
+                <div id="orders-modal" class="modal-overlay">
+                    <div class="modal-content">
+                        <button class="close-modal" onclick="closeOrdersModal()">&times;</button>
+                        <div class="order-form">
+                            <h3>Создание нового заказа</h3>
+                            <div class="form-group">
+                                <label for="order-table-select">Номер стола:</label>
+                                <select id="order-table-select" required>
+                                    <option value="">Выберите стол</option>
+                                    <option value="1">Стол 1</option>
+                                    <option value="2">Стол 2</option>
+                                    <option value="3">Стол 3</option>
+                                    <option value="4">Стол 4</option>
+                                    <option value="5">Стол 5</option>
+                                    <option value="6">Стол 6</option>
+                                    <option value="7">Стол 7</option>
+                                    <option value="8">Стол 8</option>
+                                    <option value="9">Стол 9</option>
+                                </select>
+                            </div>
+                            <div id="orders-categories" class="category-container">
+                                <!-- Категории будут добавлены динамически -->
+                            </div>
+                            <div id="orders-summary" style="display: none;">
+                                <h4>Выбранные блюда:</h4>
+                                <div id="orders-selected-items"></div>
+                                <div class="total-price">Итого: <span id="orders-total-price">0</span> руб.</div>
+                                <button id="submit-new-order">Оформить заказ</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div id="hall" class="tab">
                 <h2>Схема зала</h2>
