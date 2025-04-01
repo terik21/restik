@@ -457,6 +457,7 @@ document.addEventListener("DOMContentLoaded", function () {
             dishes.forEach(dish => {
                 const dishElement = document.createElement("div");
                 dishElement.classList.add("dish-item");
+                dishElement.dataset.id = dish.id;
                 
                 // Добавляем кнопку удаления для админов и менеджеров
                 const deleteButton = position === "Администратор" || position === "Менеджер" 
@@ -480,7 +481,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                     method: 'DELETE'
                                 });
                                 if (response.ok) {
-                                    loadDishes(categoryId);
+                                    dishElement.remove();
                                 }
                             } catch (error) {
                                 console.error("Ошибка при удалении блюда:", error);

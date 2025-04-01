@@ -102,9 +102,9 @@ def add_category():
 def get_dishes(category_id):
     with connect_db() as db:
         cursor = db.cursor()
-        cursor.execute("SELECT name, price FROM dishes WHERE category_id = ?", (category_id,))
+        cursor.execute("SELECT id, name, price FROM dishes WHERE category_id = ?", (category_id,))
         dishes = cursor.fetchall()
-    return jsonify([{"name": d[0], "price": d[1]} for d in dishes])
+    return jsonify([{"id": d[0], "name": d[1], "price": d[2]} for d in dishes])
 
 @app.route('/add-dish', methods=['POST'])
 def add_dish():
