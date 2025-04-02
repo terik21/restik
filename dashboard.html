@@ -18,14 +18,29 @@
             <button class="tab-button" data-tab="orders">Заказы</button>
             <button class="tab-button" data-tab="hall">Схема зала</button>
             <button class="tab-button" data-tab="menu">Меню</button>
-            </aside>
+            <button class="tab-button" data-tab="staff">Сотрудники</button>
+        </aside>
         <main class="content">
             <div id="shifts" class="tab active">
                 <p class="shift-greeting">Хорошей рабочей смены!</p>
             </div>
             <div id="profile" class="tab">
-                <h2>Смена</h2>
-                <p>Информация о пользователе.</p>
+                <h2>История смен</h2>
+                <div class="shifts-container">
+                    <table class="shifts-table">
+                        <thead>
+                            <tr>
+                                <th>Дата начала</th>
+                                <th>Дата окончания</th>
+                                <th>Статус</th>
+                                <th>Оплата</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Данные будут добавлены динамически через JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
             <div id="register" class="tab">
                 <h2>Регистрация пользователя</h2>
@@ -147,7 +162,7 @@
                                 <h4>Выбранные блюда:</h4>
                                 <div id="selected-items"></div>
                                 <div class="total-price">Итого: <span id="total-price">0</span> руб.</div>
-                                <button id="submit-order">Оформить заказ</button>
+                                <button id="submit-order" class="submit-order-btn">Оформить заказ</button>
                             </div>
                         </div>
                     </div>
@@ -180,6 +195,14 @@
                         <input type="hidden" id="parent-category-id">
                         <button type="submit">Добавить блюдо</button>
                     </form>
+                </div>
+            </div>
+            <div id="staff" class="tab">
+                <h2>Список сотрудников</h2>
+                <div class="employees-container">
+                    <div class="employees-grid">
+                        <!-- Сотрудники будут добавлены динамически через JavaScript -->
+                    </div>
                 </div>
             </div>
         </main>

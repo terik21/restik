@@ -61,6 +61,15 @@ with connect_db() as db:
         quantity INTEGER,
         FOREIGN KEY (order_id) REFERENCES orders(id)
     )''')
+
+    db.execute('''CREATE TABLE IF NOT EXISTS shifts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+        end_time DATETIME DEFAULT NULL,
+        payment REAL DEFAULT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )''')
     db.commit()
 
 # Обновляем структуру таблицы orders при запуске
@@ -207,38 +216,54 @@ def login():
         }
     }), 200
 
-# Получение списка пользователей
+# Удаляем маршруты:
+# - /users
+# - /users/<int:user_id>
+# Оставляем только маршруты регистрации и входа
+
+# Обновляем метод удаления пользователя
+@app.route('/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    data = request.json
+    admin_code = data.get('admin_code')
+
+    with connect_db() as db:
+        cursor = db.cursor()
+        
+        # Проверяем права администратора
+        cursor.execute("""
+            SELECT id FROM users 
+            WHERE worker_code = ? AND position = 'Администратор'
+        """, (admin_code,))
+        admin = cursor.fetchone()
+        
+        if not admin:
+            return jsonify({"error": "Недостаточно прав или неверный код администратора"}), 403
+
+        # Запрещаем удаление самого себя
+        cursor.execute("SELECT position FROM users WHERE id = ?", (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            return jsonify({"error": "Пользователь не найден"}), 404
+
+        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        db.commit()
+
+    return jsonify({"message": "Пользователь успешно удален"}), 200
+
+# Получение списка всех пользователей
 @app.route('/users', methods=['GET'])
 def get_users():
     with connect_db() as db:
         cursor = db.cursor()
-        cursor.execute("SELECT id, position, fullname FROM users")
+        cursor.execute("SELECT * FROM users")
         users = cursor.fetchall()
-
-    return jsonify(users), 200
-
-# Редактирование пользователя
-@app.route('/users/<int:user_id>', methods=['PUT'])
-def update_user(user_id):
-    data = request.json
-
-    with connect_db() as db:
-        cursor = db.cursor()
-        cursor.execute("UPDATE users SET position = ?, fullname = ?, worker_code = ? WHERE id = ?",
-                       (data.get("position"), data.get("fullname"), data.get("worker_code"), user_id))
-        db.commit()
-
-    return jsonify({"message": "Пользователь обновлен"}), 200
-
-# Удаление пользователя
-@app.route('/users/<int:user_id>', methods=['DELETE'])
-def delete_user(user_id):
-    with connect_db() as db:
-        cursor = db.cursor()
-        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        db.commit()
-
-    return jsonify({"message": "Пользователь удален"}), 200
+        print("Debug - users from DB:", users)  # Для отладки
+        return jsonify([{
+            "id": user[0],
+            "position": user[1],
+            "fullname": user[2]
+        } for user in users])
 
 # Добавление бронирования
 @app.route('/add-reservation', methods=['POST'])
@@ -304,7 +329,7 @@ def cancel_reservation(table_number):
         cursor = db.cursor()
         cursor.execute("""
             SELECT position FROM users 
-            WHERE worker_code = ? AND (position = 'Администратор' OR позиция = 'Менеджер')
+            WHERE worker_code = ? AND (position = 'Администратор' OR position = 'Менеджер')
         """, (admin_code,))
         user = cursor.fetchone()
         
@@ -532,6 +557,68 @@ def process_payment(order_id):
         db.commit()
         
     return jsonify({"message": "Оплата прошла успешно"}), 200
+
+@app.route('/start-shift', methods=['POST'])
+def start_shift():
+    data = request.json
+    user_id = data.get('user_id')
+    
+    with connect_db() as db:
+        cursor = db.cursor()
+        cursor.execute("""
+            INSERT INTO shifts (user_id)
+            VALUES (?)
+        """, (user_id,))
+        db.commit()
+    return jsonify({"message": "Смена начата"}), 201
+
+@app.route('/end-shift/<int:shift_id>', methods=['POST'])
+def end_shift(shift_id):
+    data = request.json
+    end_time = data.get('end_time')
+    
+    with connect_db() as db:
+        cursor = db.cursor()
+        cursor.execute("""
+            UPDATE shifts 
+            SET end_time = ?,
+                payment = (strftime('%s', ?) - strftime('%s', start_time)) / 60.0 * 4
+            WHERE id = ? AND end_time IS NULL
+        """, (end_time, end_time, shift_id))
+        db.commit()
+    return jsonify({"message": "Смена завершена"}), 200
+
+@app.route('/user-shifts/<int:user_id>', methods=['GET'])
+def get_user_shifts(user_id):
+    with connect_db() as db:
+        cursor = db.cursor()
+        cursor.execute("""
+            SELECT 
+                id,
+                start_time,
+                end_time,
+                CASE 
+                    WHEN end_time IS NULL THEN 'активная смена'
+                    ELSE 'завершена'
+                END as status,
+                CASE
+                    WHEN end_time IS NOT NULL 
+                    THEN (strftime('%s', end_time) - strftime('%s', start_time)) / 60.0 * 4
+                    ELSE NULL
+                END as payment
+            FROM shifts 
+            WHERE user_id = ?
+            ORDER BY start_time DESC
+        """, (user_id,))
+        shifts = cursor.fetchall()
+        
+        return jsonify([{
+            "id": shift[0],
+            "start_time": shift[1],
+            "end_time": shift[2],
+            "status": shift[3],
+            "payment": round(shift[4], 2) if shift[4] is not None else None
+        } for shift in shifts]), 200
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

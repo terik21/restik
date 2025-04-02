@@ -882,9 +882,57 @@ async function showOrderForm(tableNumber) {
         });
         
         document.getElementById('order-summary').style.display = 'block';
+
+        // Удаляем старый обработчик перед добавлением нового
+        const submitBtn = document.getElementById('submit-order');
+        submitBtn.replaceWith(submitBtn.cloneNode(true));
+        
+        // Добавляем новый обработчик
+        document.getElementById('submit-order').onclick = async () => {
+            await handleOrderSubmit(tableNumber);
+        };
         
     } catch (error) {
         console.error('Ошибка при загрузке категорий:', error);
+    }
+}
+
+// Выносим логику создания заказа в отдельную функцию
+async function handleOrderSubmit(tableNumber) {
+    const items = [];
+    document.querySelectorAll('.order-dish input[type="number"]').forEach(input => {
+        const quantity = parseInt(input.value);
+        if (quantity > 0) {
+            items.push({
+                name: input.dataset.name,
+                price: parseFloat(input.dataset.price),
+                quantity: quantity
+            });
+        }
+    });
+
+    if (items.length === 0) {
+        alert('Добавьте хотя бы одно блюдо в заказ');
+        return;
+    }
+
+    try {
+        const response = await fetch(`http://localhost:5001/create-order/${tableNumber}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items })
+        });
+
+        if (response.ok) {
+            alert('Заказ успешно создан');
+            closeOrderModal();
+            await loadTableStatuses();
+        } else {
+            alert('Ошибка при создании заказа');
+        }
+    } catch (error) {
+        console.error('Ошибка при отправке заказа:', error);
+        alert('Ошибка при создании заказа');
     }
 }
 
@@ -1052,6 +1100,755 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelector('.tab-button[data-tab="orders"]')?.addEventListener('click', loadOrders);
 });
 
+// ...existing code...
 
+document.querySelector('.tab-button[data-tab="profile"]').addEventListener("click", async () => {
+    const profileTab = document.getElementById("profile");
+    const userId = localStorage.getItem("userId");
+    
+    if (!userId) {
+        alert("Ошибка: сессия устарела");
+        window.location.href = "index.html";
+        return;
+    }
 
+    try {
+        const response = await fetch(`http://localhost:5001/user-shifts/${userId}`);
+        const shifts = await response.json();
+        
+        const tbody = document.querySelector('.shifts-table tbody');
+        tbody.innerHTML = shifts.map(shift => `
+            <tr>
+                <td>${new Date(shift.start_time).toLocaleString()}</td>
+                <td>${shift.end_time ? new Date(shift.end_time).toLocaleString() : '-'}</td>
+                <td><span class="status-${shift.status === 'активная смена' ? 'active' : 'completed'}">${shift.status}</span></td>
+                <td class="payment">${shift.payment ? shift.payment + ' ₽' : '-'}</td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error("Ошибка при загрузке смен:", error);
+        profileTab.innerHTML = '<p class="error">Ошибка при загрузке данных о сменах</p>';
+    }
+});
 
+// Update login success handler to start shift
+document.addEventListener("DOMContentLoaded", function() {
+    // ...existing code...
+    
+    // После успешной авторизации
+    if (localStorage.getItem("userId")) {
+        fetch("http://localhost:5001/start-shift", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: localStorage.getItem("userId") })
+        }).catch(error => console.error("Ошибка при начале смены:", error));
+    }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+    const userId = localStorage.getItem("userId");
+    // Проверяем роль пользователя
+    const position = localStorage.getItem("position");
+    console.log("Текущая должность:", position);
+    console.log("ID пользователя:", userId);
+
+    if (!userId || !position) {
+        window.location.href = "index.html";
+        return;
+    }
+
+    // ...existing code...
+});
+
+document.addEventListener("DOMContentLoaded", function() {
+    const userId = localStorage.getItem("userId");
+    const position = localStorage.getItem("position");
+    const shiftStarted = localStorage.getItem("shiftStarted");
+
+    console.log("Текущая должность:", position);
+    console.log("ID пользователя:", userId);
+
+    if (!userId || !position) {
+        window.location.href = "index.html";
+        return;
+    }
+
+    // Начинаем смену только если она ещё не начата
+    if (!shiftStarted && userId) {
+        fetch("http://localhost:5001/start-shift", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: userId })
+        })
+        .then(() => {
+            localStorage.setItem("shiftStarted", "true");
+        })
+        .catch(error => console.error("Ошибка при начале смены:", error));
+    }
+
+    // ... rest of the initialization code ...
+});
+
+// Обработчик закрытия смены (исправленная версия)
+document.querySelector('.tab-button[data-tab="shifts"]').addEventListener("click", async () => {
+    if (confirm("Вы уверены, что хотите закрыть личную смену и выйти?")) {
+        const userId = localStorage.getItem("userId");
+        try {
+            // Получаем активные смены пользователя
+            const response = await fetch(`http://localhost:5001/user-shifts/${userId}`);
+            const shifts = await response.json();
+            const activeShift = shifts.find(shift => shift.status === 'активная смена');
+
+            if (activeShift) {
+                // Закрываем активную смену
+                const closeResponse = await fetch(`http://localhost:5001/end-shift/${activeShift.id}`, {
+                    method: 'POST'
+                });
+
+                if (closeResponse.ok) {
+                    // Очищаем данные и выходим
+                    localStorage.clear();
+                    window.location.href = "index.html";
+                } else {
+                    alert('Ошибка при закрытии смены');
+                }
+            } else {
+                // Если активной смены нет, просто выходим
+                localStorage.clear();
+                window.location.href = "index.html";
+            }
+        } catch (error) {
+            console.error("Ошибка при закрытии смены:", error);
+            alert("Ошибка при закрытии смены");
+        }
+    }
+});
+
+// ...existing code...
+
+// Заменяем существующий обработчик кнопки "Закрыть личную смену"
+document.querySelector('.tab-button[data-tab="shifts"]').addEventListener("click", async () => {
+    if (confirm("Вы уверены, что хотите закрыть личную смену и выйти?")) {
+        const userId = localStorage.getItem("userId");
+        try {
+            // Получаем активные смены пользователя
+            const response = await fetch(`http://localhost:5001/user-shifts/${userId}`);
+            const shifts = await response.json();
+            const activeShift = shifts.find(shift => shift.status === 'активная смена');
+
+            if (activeShift) {
+                // Сохраняем время выхода
+                const endTime = new Date().toISOString();
+                
+                // Закрываем активную смену с текущим временем
+                const closeResponse = await fetch(`http://localhost:5001/end-shift/${activeShift.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ end_time: endTime })
+                });
+
+                if (closeResponse.ok) {
+                    localStorage.clear();
+                    window.location.href = "index.html";
+                } else {
+                    alert('Ошибка при закрытии смены');
+                }
+            } else {
+                localStorage.clear();
+                window.location.href = "index.html";
+            }
+        } catch (error) {
+            console.error("Ошибка при закрытии смены:", error);
+            alert("Ошибка при закрытии смены");
+        }
+    }
+});
+
+// ...existing code...
+
+// Удалить все существующие обработчики DOMContentLoaded и оставить только один
+document.addEventListener("DOMContentLoaded", function() {
+    const userId = localStorage.getItem("userId");
+    const position = localStorage.getItem("position");
+    const shiftStarted = localStorage.getItem("shiftStarted");
+
+    console.log("Текущая должность:", position);
+    console.log("ID пользователя:", userId);
+
+    if (!userId || !position) {
+        window.location.href = "index.html";
+        return;
+    }
+
+    // Инициализация интерфейса
+    initializeInterface();
+
+    // Начинаем смену только если она ещё не начата
+    if (!shiftStarted && userId) {
+        fetch("http://localhost:5001/start-shift", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: userId })
+        })
+        .then(() => {
+            localStorage.setItem("shiftStarted", "true");
+        })
+        .catch(error => console.error("Ошибка при начале смены:", error));
+    }
+});
+
+// Вынести инициализацию интерфейса в отдельную функцию
+function initializeInterface() {
+    const username = localStorage.getItem("username") || "Неизвестный";
+    const position = localStorage.getItem("position") || "Нет данных";
+    const loginTime = localStorage.getItem("loginTime") || new Date().toLocaleString();
+
+    // Инициализация user-info
+    const userInfoDiv = document.getElementById("user-info");
+    if (userInfoDiv) {
+        userInfoDiv.innerHTML = `
+            <p><strong>${position}</strong></p>
+            <p><strong>${username}</strong></p>
+            <p>Время входа: ${loginTime}</p>
+        `;
+    }
+
+    // Показываем/скрываем вкладки в зависимости от роли
+    if (position === "Официант" || position === "Повар") {
+        const registerTab = document.querySelector('.tab-button[data-tab="register"]');
+        const staffTab = document.querySelector('.tab-button[data-tab="staff"]');  // Изменено с employees на staff
+        if (registerTab) registerTab.style.display = "none";
+        if (staffTab) staffTab.style.display = "none";
+        
+        // Скрываем схему зала для поваров
+        if (position === "Повар") {
+            const hallTab = document.querySelector('.tab-button[data-tab="hall"]');
+            if (hallTab) hallTab.style.display = "none";
+        }
+    } else if (position === "Администратор") {
+        const staffTab = document.querySelector('.tab-button[data-tab="staff"]');  // Изменено с employees на staff
+        if (staffTab) {
+            staffTab.style.display = "block";
+            staffTab.addEventListener("click", () => {
+                loadEmployees();
+                document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+                document.getElementById('staff').classList.add('active');  // Изменено с employees на staff
+            });
+        }
+    }
+
+    // Добавление обработчиков для остальных табов
+    const tabs = document.querySelectorAll(".tab-button");
+    const tabContents = document.querySelectorAll(".tab");
+
+    tabs.forEach(tab => {
+        const target = tab.getAttribute("data-tab");
+        if (target !== 'shifts') { // Игнорируем кнопку закрытия смены
+            tab.addEventListener("click", function() {
+                tabContents.forEach(content => {
+                    content.classList.remove("active");
+                });
+                document.getElementById(target).classList.add("active");
+            });
+        }
+    });
+
+    // Обработчик для кнопки закрытия смены
+    attachShiftCloseHandler();
+}
+
+// Выносим логику закрытия смены в отдельную функцию
+async function handleShiftClose() {
+    if (confirm("Вы уверены, что хотите закрыть личную смену и выйти?")) {
+        const userId = localStorage.getItem("userId");
+        try {
+            const response = await fetch(`http://localhost:5001/user-shifts/${userId}`);
+            const shifts = await response.json();
+            const activeShift = shifts.find(shift => shift.status === 'активная смена');
+
+            if (activeShift) {
+                const endTime = new Date().toISOString();
+                
+                const closeResponse = await fetch(`http://localhost:5001/end-shift/${activeShift.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ end_time: endTime })
+                });
+
+                if (closeResponse.ok) {
+                    localStorage.clear();
+                    window.location.href = "index.html";
+                } else {
+                    alert('Ошибка при закрытии смены');
+                }
+            } else {
+                localStorage.clear();
+                window.location.href = "index.html";
+            }
+        } catch (error) {
+            console.error("Ошибка при закрытии смены:", error);
+            alert("Ошибка при закрытии смены");
+        }
+    }
+}
+
+// Удалить все существующие обработчики клика для кнопки закрытия смены
+function attachShiftCloseHandler() {
+    const shiftsButton = document.querySelector('.tab-button[data-tab="shifts"]');
+    if (shiftsButton) {
+        // Сначала удаляем все существующие обработчики
+        const clone = shiftsButton.cloneNode(true);
+        shiftsButton.parentNode.replaceChild(clone, shiftsButton);
+        
+        // Добавляем единственный обработчик
+        clone.addEventListener("click", handleShiftClose);
+    }
+}
+
+// Обновляем функцию initializeInterface
+function initializeInterface() {
+    // ...existing code...
+
+    // Вместо прямого добавления обработчика используем функцию attachShiftCloseHandler
+    attachShiftCloseHandler();
+
+    // Добавление обработчиков для остальных табов
+    const tabs = document.querySelectorAll(".tab-button");
+    const tabContents = document.querySelectorAll(".tab");
+
+    tabs.forEach(tab => {
+        const target = tab.getAttribute("data-tab");
+        if (target !== 'shifts') { // Игнорируем кнопку закрытия смены
+            tab.addEventListener("click", function() {
+                tabContents.forEach(content => content.classList.remove("active"));
+                document.getElementById(target).classList.add("active");
+            });
+        }
+    });
+}
+
+// Оставляем только одну функцию handleShiftClose
+async function handleShiftClose() {
+    if (confirm("Вы уверены, что хотите закрыть личную смену и выйти?")) {
+        const userId = localStorage.getItem("userId");
+        try {
+            const response = await fetch(`http://localhost:5001/user-shifts/${userId}`);
+            const shifts = await response.json();
+            const activeShift = shifts.find(shift => shift.status === 'активная смена');
+
+            if (activeShift) {
+                const endTime = new Date().toISOString();
+                
+                const closeResponse = await fetch(`http://localhost:5001/end-shift/${activeShift.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ end_time: endTime })
+                });
+
+                if (closeResponse.ok) {
+                    localStorage.clear();
+                    window.location.href = "index.html";
+                } else {
+                    alert('Ошибка при закрытии смены');
+                }
+            } else {
+                localStorage.clear();
+                window.location.href = "index.html";
+            }
+        } catch (error) {
+            console.error("Ошибка при закрытии смены:", error);
+            alert("Ошибка при закрытии смены");
+        }
+    }
+}
+
+// ВАЖНО: Удалить все остальные обработчики для кнопки закрытия смены из файла
+// Удалить все дублирующиеся addEventListener для '.tab-button[data-tab="shifts"]'
+
+// ...existing code...
+
+// Удаляем все старые обработчики DOMContentLoaded и оставляем только один
+document.addEventListener("DOMContentLoaded", function() {
+    const userId = localStorage.getItem("userId");
+    const position = localStorage.getItem("position");
+    const shiftStarted = localStorage.getItem("shiftStarted");
+
+    if (!userId || !position) {
+        window.location.href = "index.html";
+        return;
+    }
+
+    // Initialize interface
+    initializeInterface();
+    
+    // Handle shift start if needed
+    if (!shiftStarted && userId) {
+        fetch("http://localhost:5001/start-shift", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: userId })
+        })
+        .then(() => {
+            localStorage.setItem("shiftStarted", "true");
+        })
+        .catch(error => console.error("Ошибка при начале смены:", error));
+    }
+
+    // Initialize form handlers
+    initializeFormHandlers();
+});
+
+// Single handler for order submission
+function handleOrderSubmit(tableNumber) {
+    const items = [];
+    document.querySelectorAll('.order-dish input[type="number"]').forEach(input => {
+        const quantity = parseInt(input.value);
+        if (quantity > 0) {
+            items.push({
+                name: input.dataset.name,
+                price: parseFloat(input.dataset.price),
+                quantity: quantity
+            });
+        }
+    });
+
+    if (items.length === 0) {
+        alert('Добавьте хотя бы одно блюдо в заказ');
+        return;
+    }
+
+    createOrder(tableNumber, items);
+}
+
+// Remove all other event listeners and use these consolidated functions
+// ...rest of existing code...
+
+function initializeFormHandlers() {
+    // Add single event listener for submit-order button
+    const submitOrderBtn = document.getElementById('submit-order');
+    if (submitOrderBtn) {
+        submitOrderBtn.onclick = () => {
+            const tableNumber = document.getElementById('order-table-number').textContent;
+            handleOrderSubmit(tableNumber);
+        };
+    }
+
+    // Single handler for register form
+    const registerForm = document.getElementById("register-form");
+    if (registerForm) {
+        registerForm.addEventListener("submit", handleRegisterSubmit);
+    }
+
+    // Single handler for shifts button
+    const shiftsButton = document.querySelector('.tab-button[data-tab="shifts"]');
+    if (shiftsButton) {
+        shiftsButton.onclick = handleShiftClose;
+    }
+}
+
+// Remove all duplicate event listeners and use the above structure
+
+// ...existing code...
+
+// Add new initialization in the DOMContentLoaded event listener
+document.addEventListener("DOMContentLoaded", function() {
+    // ...existing code...
+
+    // Show/hide employees tab based on position
+    const employeesTab = document.querySelector('.tab-button[data-tab="employees"]');
+    if (employeesTab) {
+        if (position === "Администратор") {
+            employeesTab.style.display = "block";
+            employeesTab.addEventListener("click", loadEmployees);
+        } else {
+            employeesTab.style.display = "none";
+        }
+    }
+});
+
+// Add new functions for employees management
+async function loadEmployees() {
+    const employeesContainer = document.querySelector('.employees-grid');
+    if (!employeesContainer) {
+        console.error('Контейнер для сотрудников не найден');
+        return;
+    }
+    
+    const currentPosition = localStorage.getItem('position');
+    
+    try {
+        console.log('Начало загрузки сотрудников...'); // Отладочный вывод
+        const response = await fetch('http://localhost:5001/users');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const employees = await response.json();
+        console.log('Полученные данные о сотрудниках:', employees); // Отладочный вывод
+
+        employeesContainer.innerHTML = ''; // Очищаем контейнер
+
+        if (employees.length === 0) {
+            employeesContainer.innerHTML = '<div class="empty-message">Нет зарегистрированных сотрудников</div>';
+            return;
+        }
+
+        employees.forEach(employee => {
+            const card = document.createElement('div');
+            card.className = 'employee-card';
+            card.innerHTML = `
+                <h3>${employee.fullname || 'Без имени'}</h3>
+                <div class="employee-position">${employee.position || 'Должность не указана'}</div>
+                ${currentPosition === 'Администратор' ? 
+                    `<button class="delete-employee-btn" 
+                        onclick="deleteEmployee(${employee.id}, '${(employee.fullname || '').replace(/'/g, "\\'")}')">
+                        Удалить
+                    </button>` : 
+                    ''
+                }
+            `;
+            employeesContainer.appendChild(card);
+        });
+
+        // Показываем вкладку сотрудников
+        const staffTab = document.getElementById('staff');
+        if (staffTab) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            staffTab.classList.add('active');
+        }
+
+    } catch (error) {
+        console.error('Ошибка при загрузке списка сотрудников:', error);
+        employeesContainer.innerHTML = '<div class="error">Ошибка при загрузке данных</div>';
+    }
+}
+
+async function deleteEmployee(employeeId, employeeName) {
+    if (!confirm(`Вы уверены, что хотите удалить сотрудника ${employeeName}?`)) {
+        return;
+    }
+
+    const adminCode = prompt('Введите код администратора для подтверждения:');
+    if (!adminCode) return;
+
+    try {
+        const response = await fetch(`http://localhost:5001/users/${employeeId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ admin_code: adminCode })
+        });
+
+        if (response.ok) {
+            alert('Сотрудник успешно удален');
+            loadEmployees();
+        } else {
+            const error = await response.json();
+            alert(error.error || 'Ошибка при удалении сотрудника');
+        }
+    } catch (error) {
+        console.error('Ошибка при удалении сотрудника:', error);
+        alert('Ошибка при удалении сотрудника');
+    }
+}
+
+// ...existing code...
+
+// Обновляем функцию initializeInterface
+function initializeInterface() {
+    const username = localStorage.getItem("username") || "Неизвестный";
+    const position = localStorage.getItem("position") || "Нет данных";
+    const loginTime = localStorage.getItem("loginTime") || new Date().toLocaleString();
+
+    // Инициализация user-info
+    const userInfoDiv = document.getElementById("user-info");
+    if (userInfoDiv) {
+        userInfoDiv.innerHTML = `
+            <p><strong>${position}</strong></p>
+            <p><strong>${username}</strong></p>
+            <p>Время входа: ${loginTime}</p>
+        `;
+    }
+
+    // Показываем/скрываем вкладки в зависимости от роли
+    if (position === "Официант" || position === "Повар") {
+        const registerTab = document.querySelector('.tab-button[data-tab="register"]');
+        const employeesTab = document.querySelector('.tab-button[data-tab="employees"]');
+        if (registerTab) registerTab.style.display = "none";
+        if (employeesTab) employeesTab.style.display = "none";
+        
+        // Скрываем схему зала для поваров
+        if (position === "Повар") {
+            const hallTab = document.querySelector('.tab-button[data-tab="hall"]');
+            if (hallTab) hallTab.style.display = "none";
+        }
+    } else if (position === "Администратор") {
+        // Для администратора показываем все вкладки
+        const employeesTab = document.querySelector('.tab-button[data-tab="employees"]');
+        if (employeesTab) {
+            employeesTab.style.display = "block";
+            // Добавляем обработчик для загрузки сотрудников при клике
+            employeesTab.addEventListener("click", () => {
+                loadEmployees();
+                // Активируем вкладку
+                document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+                document.getElementById('employees').classList.add('active');
+            });
+        }
+    }
+
+    // Добавление обработчиков для остальных табов
+    const tabs = document.querySelectorAll(".tab-button");
+    const tabContents = document.querySelectorAll(".tab");
+
+    tabs.forEach(tab => {
+        const target = tab.getAttribute("data-tab");
+        if (target !== 'shifts') {
+            tab.addEventListener("click", function() {
+                tabContents.forEach(content => content.classList.remove("active"));
+                document.getElementById(target).classList.add("active");
+            });
+        }
+    });
+
+    // Обработчик для кнопки закрытия смены
+    attachShiftCloseHandler();
+}
+
+// Обновляем функцию loadEmployees
+async function loadEmployees(userPosition) {
+    const employeesTable = document.querySelector('.employees-table tbody');
+    
+    try {
+        const response = await fetch('http://localhost:5001/users');
+        if (!response.ok) {
+            throw new Error('Ошибка при загрузке данных');
+        }
+        const employees = await response.json();
+        
+        employeesTable.innerHTML = employees.map(employee => `
+            <tr>
+                <td>${employee[2]}</td>
+                <td>${employee[1]}</td>
+                <td>
+                    ${userPosition === 'Администратор' ? 
+                        `<button class="delete-employee-btn" 
+                            onclick="deleteEmployee(${employee[0]}, '${employee[2].replace(/'/g, "\\'")}')">
+                            Удалить
+                        </button>` : 
+                        ''
+                    }
+                </td>
+            </tr>
+        `).join('');
+        
+        // Показываем вкладку после загрузки данных
+        document.getElementById('staff').classList.add('active');
+    } catch (error) {
+        console.error('Ошибка при загрузке списка сотрудников:', error);
+        employeesTable.innerHTML = '<tr><td colspan="3">Ошибка при загрузке данных</td></tr>';
+    }
+}
+
+// ...existing code...
+
+// Добавляем функцию handleRegisterSubmit перед initializeFormHandlers
+async function handleRegisterSubmit(event) {
+    event.preventDefault();
+
+    const position = document.getElementById("position").value;
+    const fullname = document.getElementById("fullname").value;
+    const workerCode = document.getElementById("worker-code").value;
+    const adminCode = document.getElementById("admin-code").value;
+
+    const requestData = {
+        position: position,
+        fullname: fullname,
+        worker_code: workerCode,
+        admin_code: adminCode
+    };
+
+    try {
+        const response = await fetch("http://localhost:5001/register", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        const result = await response.json();
+        alert(result.message || result.error);
+
+        if (response.ok) {
+            event.target.reset();
+        }
+    } catch (error) {
+        console.error("Ошибка при отправке запроса:", error);
+        alert("Ошибка регистрации. Попробуйте позже.");
+    }
+}
+
+function initializeFormHandlers() {
+    // ...existing code...
+}
+
+// ...existing code...
+
+async function loadEmployees() {
+    const employeesContainer = document.querySelector('.employees-grid');
+    if (!employeesContainer) {
+        console.error('Контейнер для сотрудников не найден');
+        return;
+    }
+    
+    const currentPosition = localStorage.getItem('position');
+    
+    try {
+        console.log('Начало загрузки сотрудников...');
+        const response = await fetch('http://localhost:5001/users');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const employees = await response.json();
+        console.log('Полученные данные о сотрудниках:', employees);
+
+        if (!Array.isArray(employees) || employees.length === 0) {
+            employeesContainer.innerHTML = '<div class="empty-message">Нет зарегистрированных сотрудников</div>';
+            return;
+        }
+
+        employeesContainer.innerHTML = employees.map(employee => `
+            <div class="employee-card">
+                <h3>${employee.fullname || 'Без имени'}</h3>
+                <div class="employee-position">${employee.position || 'Должность не указана'}</div>
+                ${currentPosition === 'Администратор' ? 
+                    `<button class="delete-employee-btn" 
+                        onclick="deleteEmployee(${employee.id}, '${(employee.fullname || '').replace(/'/g, "\\'")}')">
+                        Удалить
+                    </button>` : 
+                    ''
+                }
+            </div>
+        `).join('');
+
+        // Активируем вкладку сотрудников
+        const staffTab = document.getElementById('staff');
+        if (staffTab) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            staffTab.classList.add('active');
+        }
+
+    } catch (error) {
+        console.error('Ошибка при загрузке списка сотрудников:', error);
+        employeesContainer.innerHTML = '<div class="error">Ошибка при загрузке данных</div>';
+    }
+}
+
+// ...existing code...
