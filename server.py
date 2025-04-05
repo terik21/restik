@@ -256,9 +256,9 @@ def delete_user(user_id):
 def get_users():
     with connect_db() as db:
         cursor = db.cursor()
-        cursor.execute("SELECT * FROM users")
+        # Выбираем всех сотрудников кроме администраторов
+        cursor.execute("SELECT id, position, fullname FROM users WHERE position IN ('Официант', 'Повар', 'Менеджер')")
         users = cursor.fetchall()
-        print("Debug - users from DB:", users)  # Для отладки
         return jsonify([{
             "id": user[0],
             "position": user[1],
@@ -566,8 +566,8 @@ def start_shift():
     with connect_db() as db:
         cursor = db.cursor()
         cursor.execute("""
-            INSERT INTO shifts (user_id)
-            VALUES (?)
+            INSERT INTO shifts (user_id, start_time)
+            VALUES (?, datetime('now', '+3 hours'))
         """, (user_id,))
         db.commit()
     return jsonify({"message": "Смена начата"}), 201
@@ -575,16 +575,15 @@ def start_shift():
 @app.route('/end-shift/<int:shift_id>', methods=['POST'])
 def end_shift(shift_id):
     data = request.json
-    end_time = data.get('end_time')
     
     with connect_db() as db:
         cursor = db.cursor()
         cursor.execute("""
             UPDATE shifts 
-            SET end_time = ?,
-                payment = (strftime('%s', ?) - strftime('%s', start_time)) / 60.0 * 4
+            SET end_time = datetime('now', '+3 hours'),
+                payment = (strftime('%s', datetime('now', '+3 hours')) - strftime('%s', start_time)) / 60.0 * 4
             WHERE id = ? AND end_time IS NULL
-        """, (end_time, end_time, shift_id))
+        """, (shift_id,))
         db.commit()
     return jsonify({"message": "Смена завершена"}), 200
 

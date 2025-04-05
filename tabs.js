@@ -1347,9 +1347,7 @@ function initializeInterface() {
         const target = tab.getAttribute("data-tab");
         if (target !== 'shifts') { // Игнорируем кнопку закрытия смены
             tab.addEventListener("click", function() {
-                tabContents.forEach(content => {
-                    content.classList.remove("active");
-                });
+                tabContents.forEach(content => content.classList.remove("active"));
                 document.getElementById(target).classList.add("active");
             });
         }
@@ -1575,25 +1573,19 @@ document.addEventListener("DOMContentLoaded", function() {
 // Add new functions for employees management
 async function loadEmployees() {
     const employeesContainer = document.querySelector('.employees-grid');
-    if (!employeesContainer) {
-        console.error('Контейнер для сотрудников не найден');
-        return;
-    }
-    
     const currentPosition = localStorage.getItem('position');
     
     try {
-        console.log('Начало загрузки сотрудников...'); // Отладочный вывод
         const response = await fetch('http://localhost:5001/users');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const employees = await response.json();
-        console.log('Полученные данные о сотрудниках:', employees); // Отладочный вывод
+        console.log('Полученные данные о сотрудниках:', employees);
 
-        employeesContainer.innerHTML = ''; // Очищаем контейнер
+        employeesContainer.innerHTML = '';
 
-        if (employees.length === 0) {
+        if (!employees || employees.length === 0) {
             employeesContainer.innerHTML = '<div class="empty-message">Нет зарегистрированных сотрудников</div>';
             return;
         }
@@ -1602,11 +1594,11 @@ async function loadEmployees() {
             const card = document.createElement('div');
             card.className = 'employee-card';
             card.innerHTML = `
-                <h3>${employee.fullname || 'Без имени'}</h3>
-                <div class="employee-position">${employee.position || 'Должность не указана'}</div>
+                <h3>${employee.fullname}</h3>
+                <div class="employee-position">${employee.position}</div>
                 ${currentPosition === 'Администратор' ? 
                     `<button class="delete-employee-btn" 
-                        onclick="deleteEmployee(${employee.id}, '${(employee.fullname || '').replace(/'/g, "\\'")}')">
+                        onclick="deleteEmployee(${employee.id}, '${employee.fullname.replace(/'/g, "\\'")}')">
                         Удалить
                     </button>` : 
                     ''
@@ -1614,13 +1606,6 @@ async function loadEmployees() {
             `;
             employeesContainer.appendChild(card);
         });
-
-        // Показываем вкладку сотрудников
-        const staffTab = document.getElementById('staff');
-        if (staffTab) {
-            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            staffTab.classList.add('active');
-        }
 
     } catch (error) {
         console.error('Ошибка при загрузке списка сотрудников:', error);
@@ -1647,7 +1632,7 @@ async function deleteEmployee(employeeId, employeeName) {
 
         if (response.ok) {
             alert('Сотрудник успешно удален');
-            loadEmployees();
+            loadEmployees(); // Перезагружаем список сотрудников
         } else {
             const error = await response.json();
             alert(error.error || 'Ошибка при удалении сотрудника');
@@ -1657,6 +1642,9 @@ async function deleteEmployee(employeeId, employeeName) {
         alert('Ошибка при удалении сотрудника');
     }
 }
+
+// Add click handler for staff tab
+document.querySelector('.tab-button[data-tab="staff"]').addEventListener('click', loadEmployees);
 
 // ...existing code...
 
@@ -1803,15 +1791,9 @@ function initializeFormHandlers() {
 
 async function loadEmployees() {
     const employeesContainer = document.querySelector('.employees-grid');
-    if (!employeesContainer) {
-        console.error('Контейнер для сотрудников не найден');
-        return;
-    }
-    
     const currentPosition = localStorage.getItem('position');
     
     try {
-        console.log('Начало загрузки сотрудников...');
         const response = await fetch('http://localhost:5001/users');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -1819,35 +1801,63 @@ async function loadEmployees() {
         const employees = await response.json();
         console.log('Полученные данные о сотрудниках:', employees);
 
-        if (!Array.isArray(employees) || employees.length === 0) {
+        employeesContainer.innerHTML = '';
+
+        if (!employees || employees.length === 0) {
             employeesContainer.innerHTML = '<div class="empty-message">Нет зарегистрированных сотрудников</div>';
             return;
         }
 
-        employeesContainer.innerHTML = employees.map(employee => `
-            <div class="employee-card">
-                <h3>${employee.fullname || 'Без имени'}</h3>
-                <div class="employee-position">${employee.position || 'Должность не указана'}</div>
+        employees.forEach(employee => {
+            const card = document.createElement('div');
+            card.className = 'employee-card';
+            card.innerHTML = `
+                <h3>${employee.fullname}</h3>
+                <div class="employee-position">${employee.position}</div>
                 ${currentPosition === 'Администратор' ? 
                     `<button class="delete-employee-btn" 
-                        onclick="deleteEmployee(${employee.id}, '${(employee.fullname || '').replace(/'/g, "\\'")}')">
+                        onclick="deleteEmployee(${employee.id}, '${employee.fullname.replace(/'/g, "\\'")}')">
                         Удалить
                     </button>` : 
                     ''
                 }
-            </div>
-        `).join('');
-
-        // Активируем вкладку сотрудников
-        const staffTab = document.getElementById('staff');
-        if (staffTab) {
-            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            staffTab.classList.add('active');
-        }
+            `;
+            employeesContainer.appendChild(card);
+        });
 
     } catch (error) {
         console.error('Ошибка при загрузке списка сотрудников:', error);
         employeesContainer.innerHTML = '<div class="error">Ошибка при загрузке данных</div>';
+    }
+}
+
+async function deleteEmployee(employeeId, employeeName) {
+    if (!confirm(`Вы уверены, что хотите удалить сотрудника ${employeeName}?`)) {
+        return;
+    }
+
+    const adminCode = prompt('Введите код администратора для подтверждения:');
+    if (!adminCode) return;
+
+    try {
+        const response = await fetch(`http://localhost:5001/users/${employeeId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ admin_code: adminCode })
+        });
+
+        if (response.ok) {
+            alert('Сотрудник успешно удален');
+            loadEmployees(); // Перезагружаем список сотрудников
+        } else {
+            const error = await response.json();
+            alert(error.error || 'Ошибка при удалении сотрудника');
+        }
+    } catch (error) {
+        console.error('Ошибка при удалении сотрудника:', error);
+        alert('Ошибка при удалении сотрудника');
     }
 }
 

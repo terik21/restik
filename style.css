@@ -1072,6 +1072,7 @@ button:hover {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s, box-shadow 0.2s;
     position: relative;
+    padding-bottom: 30px;  /* Add space for the button */
 }
 
 .employee-card:hover {
@@ -1093,16 +1094,18 @@ button:hover {
 
 .employee-card .delete-employee-btn {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
     background: #ff4444;
     color: white;
     border: none;
     border-radius: 4px;
-    padding: 5px 10px;
+    padding: 4px 8px;
     cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.2s;
+    font-size: 12px;
+    width: auto;
+    opacity: 0.8;
 }
 
 .employee-card:hover .delete-employee-btn {
