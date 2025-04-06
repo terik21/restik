@@ -1,17 +1,23 @@
-// Utility functions at the top
+// Вспомогательные функции для работы с модальными окнами
+
+// Закрытие модального окна заказа
 function closeOrderModal() {
     document.getElementById('order-modal').style.display = 'none';
 }
 
+// Закрытие модального окна бронирования
 function closeReservationModal() {
     document.getElementById('reservation-modal').style.display = 'none';
 }
 
+// Показать модальное окно бронирования для указанного стола
 function showReservationModal(tableNumber) {
     const reservationModal = document.getElementById('reservation-modal');
+    // Устанавливаем номер выбранного стола
     document.getElementById('selected-table-number').textContent = tableNumber;
     document.getElementById('table-number').value = tableNumber;
     
+    // Получаем текущую дату и время для установки минимального значения в поле выбора даты
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -19,17 +25,21 @@ function showReservationModal(tableNumber) {
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const minDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+    // Устанавливаем минимальную дату бронирования (нельзя выбрать прошедшее время)
     document.getElementById('reservation-date').min = minDateTime;
     
+    // Показываем модальное окно
     reservationModal.style.display = 'flex';
 }
 
+// Обновление сводки заказа: подсчет общей суммы и отображение выбранных позиций
 function updateOrderSummary() {
     const selectedItems = document.getElementById('selected-items');
     const totalPriceSpan = document.getElementById('total-price');
     let total = 0;
     let orderItems = [];
 
+    // Обходим все поля ввода количества блюд
     document.querySelectorAll('.order-dish input[type="number"]').forEach(input => {
         const quantity = parseInt(input.value);
         if (quantity > 0) {
@@ -37,6 +47,7 @@ function updateOrderSummary() {
             const price = parseFloat(input.dataset.price);
             const itemTotal = price * quantity;
             total += itemTotal;
+            // Формируем строку с информацией о заказанном блюде
             orderItems.push(`${quantity}x ${name} - ${itemTotal} руб.`);
         }
     });
@@ -72,13 +83,16 @@ function updateOrdersSummary() {
     totalPriceSpan.textContent = total;
 }
 
+// Функция загрузки всех активных заказов
 async function loadOrders() {
     const ordersContainer = document.getElementById('active-orders-list');
     
     try {
+        // Получаем список всех активных заказов с сервера
         const response = await fetch('http://localhost:5001/all-orders');
         const orders = await response.json();
         
+        // Формируем HTML для каждого заказа
         ordersContainer.innerHTML = orders.map(order => `
             <div class="order-item" data-order-id="${order.id}" onclick="showOrderDetails(${order.id})">
                 <div class="order-header">
@@ -95,19 +109,20 @@ async function loadOrders() {
     }
 }
 
+// Показать детали конкретного заказа
 function showOrderDetails(orderId) {
-    // Remove selection from all orders
+    // Убираем выделение со всех заказов
     document.querySelectorAll('.order-item').forEach(item => {
         item.classList.remove('selected');
     });
     
-    // Add selection to clicked order
+    // Добавляем выделение выбранному заказу
     const selectedOrder = document.querySelector(`.order-item[data-order-id="${orderId}"]`);
     if (selectedOrder) {
         selectedOrder.classList.add('selected');
     }
 
-    // Get and show order details
+    // Загружаем и отображаем детали заказа
     fetch(`http://localhost:5001/order-details/${orderId}`)
         .then(response => response.json())
         .then(order => {
@@ -134,7 +149,9 @@ function showOrderDetails(orderId) {
         .catch(error => console.error('Ошибка при загрузке деталей заказа:', error));
 }
 
+// Показать опции оплаты заказа
 async function showPaymentOptions(orderId, totalAmount) {
+    // Запрашиваем способ оплаты
     const paymentMethod = confirm('Выберите способ оплаты:\nOK - Картой\nОтмена - Наличными');
     
     if (paymentMethod) {
@@ -1318,9 +1335,9 @@ function initializeInterface() {
     // Показываем/скрываем вкладки в зависимости от роли
     if (position === "Официант" || position === "Повар") {
         const registerTab = document.querySelector('.tab-button[data-tab="register"]');
-        const staffTab = document.querySelector('.tab-button[data-tab="staff"]');  // Изменено с employees на staff
+        const employeesTab = document.querySelector('.tab-button[data-tab="employees"]');
         if (registerTab) registerTab.style.display = "none";
-        if (staffTab) staffTab.style.display = "none";
+        if (employeesTab) employeesTab.style.display = "none";
         
         // Скрываем схему зала для поваров
         if (position === "Повар") {
@@ -1328,13 +1345,13 @@ function initializeInterface() {
             if (hallTab) hallTab.style.display = "none";
         }
     } else if (position === "Администратор") {
-        const staffTab = document.querySelector('.tab-button[data-tab="staff"]');  // Изменено с employees на staff
-        if (staffTab) {
-            staffTab.style.display = "block";
-            staffTab.addEventListener("click", () => {
+        const employeesTab = document.querySelector('.tab-button[data-tab="employees"]');
+        if (employeesTab) {
+            employeesTab.style.display = "block";
+            employeesTab.addEventListener("click", () => {
                 loadEmployees();
                 document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-                document.getElementById('staff').classList.add('active');  // Изменено с employees на staff
+                document.getElementById('employees').classList.add('active');
             });
         }
     }
