@@ -3,18 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Вход в приложение</title>
+    <title>RestaurantPro | Вход</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
-<body>
-
-    <div class="centered">
-        <h2>Вход</h2>
-        <input type="text" id="username" placeholder="Логин">
-        <input type="password" id="code" placeholder="4-значный код">
-        <button id="login-btn">Войти</button>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <h1>Вход в систему</h1>
+                <p>RestaurantPro</p>
+            </div>
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label for="fullname">Имя пользователя</label>
+                    <input type="text" id="fullname" required>
+                </div>
+                <div class="form-group">
+                    <label for="worker-code">Код сотрудника</label>
+                    <input type="password" id="worker-code" required maxlength="4">
+                </div>
+                <button type="submit" class="login-button">Войти</button>
+            </form>
+        </div>
     </div>
 
-    <script src="login.js"></script>
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            const fullname = document.getElementById('fullname').value;
+            const workerCode = document.getElementById('worker-code').value;
+
+            try {
+                const response = await fetch('http://localhost:5001/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        fullname: fullname,
+                        worker_code: workerCode
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    localStorage.clear(); // Очищаем старые данные
+                    localStorage.setItem('username', result.user.fullname);
+                    localStorage.setItem('position', result.user.position);
+                    localStorage.setItem('userId', result.user.id);
+                    localStorage.setItem('loginTime', new Date().toLocaleString());
+                    localStorage.setItem('shiftStarted', 'false');
+                    localStorage.setItem('lastUrl', window.location.href); // Добавляем текущий URL
+                    
+                    window.location.href = 'dashboard.html';
+                } else {
+                    alert(result.error || 'Ошибка при входе');
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка при подключении к серверу');
+            }
+        });
+    </script>
 </body>
 </html>

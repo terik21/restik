@@ -3,33 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Админ панель</title>
+    <title>Дашборд</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo="> <!-- Add this line to suppress favicon request -->
     <link rel="stylesheet" href="style.css">
+    <script defer src="tabs.js"></script>
 </head>
 <body>
-
     <div class="app-container">
         <aside class="sidebar">
-            <p>Администратор</p>
-            <p>Истрапов Иван Сергеевич</p>
-            <p>Личная смена открыта<br>в 10:00</p>
-            <button>Закрыть личную смену</button>
-            <button>Личная страница</button>
-            <button>Регистрация работника</button>
-            <button>Схема зала</button>
-            <button>Отчеты</button>
-            <button>Меню</button>
+            <div id="user-info" class="user-info"></div>
+            <button class="tab-button" data-tab="shifts">Закрыть личную смену</button>
+            <button class="tab-button" data-tab="profile">Смена</button>
+            <button class="tab-button" data-tab="register">Регистрация пользователя</button>
+            <button class="tab-button" data-tab="orders">Заказы</button>
+            <button class="tab-button" data-tab="hall">Схема зала</button>
+            <button class="tab-button" data-tab="menu">Меню</button>
+            <button class="tab-button" data-tab="staff">Сотрудники</button>
         </aside>
         <main class="content">
-            <h2>Регистрация работника</h2>
-            <input type="text" placeholder="Должность"><br>
-            <input type="text" placeholder="ФИО"><br>
-            <input type="text" placeholder="4-значный код работника"><br>
-            <input type="text" placeholder="4-значный код администратора"><br>
-            <button>Подтвердить</button>
+            <div id="shifts" class="tab active">
+                <p class="shift-greeting">Хорошей рабочей смены!</p>
+            </div>
+            <div id="profile" class="tab">
+                <h2>История смен</h2>
+                <div class="shifts-container">
+                    <table class="shifts-table">
+                        <thead>
+                            <tr>
+                                <th>Дата начала</th>
+                                <th>Дата окончания</th>
+                                <th>Статус</th>
+                                <th>Оплата</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Данные будут добавлены динамически через JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="register" class="tab">
+                <h2>Регистрация пользователя</h2>
+                <form id="register-form">
+                    <label for="position">Должность:</label>
+                    <select id="position" name="position" required>
+                        <option value="Администратор">Администратор</option>
+                        <option value="Менеджер">Менеджер</option>
+                        <option value="Повар">Повар</option>
+                        <option value="Официант">Официант</option>
+                    </select>
+                    
+                    <label for="fullname">ФИО:</label>
+                    <input type="text" id="fullname" name="fullname" required>
+                    
+                    <label for="worker-code">4-значный код работника:</label>
+                    <input type="number" id="worker-code" name="worker-code" required minlength="4" maxlength="4">
+                    
+                    <label for="admin-code">4-значный код админа:</label>
+                    <input type="number" id="admin-code" name="admin-code" required minlength="4" maxlength="4">
+                    
+                    <button type="submit">Зарегистрировать</button>
+                </form>
+            </div>
+            <div id="orders" class="tab">
+                <h2>Заказы</h2>
+                <div class="orders-container">
+                    <div class="orders-list">
+                        <div id="active-orders-list"></div>
+                    </div>
+                    <div class="order-details">
+                        <div class="create-order-section">
+                            <button id="create-new-order" class="create-order-btn">Создать новый заказ</button>
+                        </div>
+                        <div id="selected-order-details">
+                            <h3>Детали заказа</h3>
+                            <div id="order-items-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ...rest of existing order modal code... -->
+                <div id="orders-modal" class="modal-overlay">
+                    <div class="modal-content">
+                        <button class="close-modal" onclick="closeOrdersModal()">&times;</button>
+                        <div class="order-form">
+                            <h3>Создание нового заказа</h3>
+                            <div class="form-group">
+                                <label for="order-table-select">Номер стола:</label>
+                                <select id="order-table-select" required>
+                                    <option value="">Выберите стол</option>
+                                    <option value="1">Стол 1</option>
+                                    <option value="2">Стол 2</option>
+                                    <option value="3">Стол 3</option>
+                                    <option value="4">Стол 4</option>
+                                    <option value="5">Стол 5</option>
+                                    <option value="6">Стол 6</option>
+                                    <option value="7">Стол 7</option>
+                                    <option value="8">Стол 8</option>
+                                    <option value="9">Стол 9</option>
+                                </select>
+                            </div>
+                            <div id="orders-categories" class="category-container">
+                                <!-- Категории будут добавлены динамически -->
+                            </div>
+                            <div id="orders-summary" style="display: none;">
+                                <h4>Выбранные блюда:</h4>
+                                <div id="orders-selected-items"></div>
+                                <div class="total-price">Итого: <span id="orders-total-price">0</span> руб.</div>
+                                <button id="submit-new-order">Оформить заказ</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="hall" class="tab">
+                <h2>Схема зала</h2>
+                <div class="hall-layout">
+                    <div class="table" data-table="1">1</div>
+                    <div class="table" data-table="2">2</div>
+                    <div class="table" data-table="3">3</div>
+                    <div class="table" data-table="4">4</div>
+                    <div class="table" data-table="5">5</div>
+                    <div class="table" data-table="6">6</div>
+                    <div class="table" data-table="7">7</div>
+                    <div class="table" data-table="8">8</div>
+                    <div class="table" data-table="9">9</div>
+                </div>
+
+                <!-- Форма бронирования стола -->
+                <div id="reservation-modal" class="modal-overlay">
+                    <div class="modal-content">
+                        <button class="close-modal" onclick="closeReservationModal()">&times;</button>
+                        <div id="reservation-container">
+                            <h3>Бронирование стола №<span id="selected-table-number"></span></h3>
+                            <form id="reservation-form">
+                                <label for="guest-name">Фамилия гостя:</label>
+                                <input type="text" id="guest-name" required>
+                                
+                                <label for="reservation-date">Дата и время:</label>
+                                <input type="datetime-local" id="reservation-date" required>
+                                
+                                <input type="hidden" id="table-number">
+                                <button type="submit">Забронировать</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Форма создания заказа -->
+                <div id="order-modal" class="modal-overlay">
+                    <div class="modal-content">
+                        <button class="close-modal" onclick="closeOrderModal()">&times;</button>
+                        <div id="order-container" class="order-form">
+                            <h3>Создание заказа для стола №<span id="order-table-number"></span></h3>
+                            <div id="order-categories" class="category-container">
+                                <!-- Категории будут добавлены динамически -->
+                            </div>
+                            <div id="order-summary" style="display: none;">
+                                <h4>Выбранные блюда:</h4>
+                                <div id="selected-items"></div>
+                                <div class="total-price">Итого: <span id="total-price">0</span> руб.</div>
+                                <button id="submit-order" class="submit-order-btn">Оформить заказ</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="menu" class="tab">
+                <h2>Меню</h2>
+                <div id="category-list" class="category-container">
+                    <!-- Категории будут добавляться динамически -->
+                </div>
+
+                <!-- Форма добавления разделов -->
+                <form id="add-category-form" style="display: none;">
+                    <label for="category-name">Название раздела:</label>
+                    <input type="text" id="category-name" required>
+                    <button type="submit">Добавить раздел</button>
+                </form>
+
+                <!-- Контейнер для отображения блюд -->
+                <div id="dish-container" style="display: none;">
+                    <h3 id="selected-category-name"></h3>
+                    <div id="dish-list"></div>
+
+                    <!-- Форма добавления блюд -->
+                    <form id="add-dish-form" style="display: none;">
+                        <label for="dish-name">Название блюда:</label>
+                        <input type="text" id="dish-name" required>
+                        <label for="dish-price">Стоимость блюда:</label>
+                        <input type="number" id="dish-price" required>
+                        <input type="hidden" id="parent-category-id">
+                        <button type="submit">Добавить блюдо</button>
+                    </form>
+                </div>
+            </div>
+            <div id="staff" class="tab">
+                <h2>Список сотрудников</h2>
+                <div class="employees-container">
+                    <div class="employees-grid">
+                        <!-- Сотрудники будут добавлены динамически через JavaScript -->
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
-
-    <script src="dashboard.js"></script> <!-- Пока пустой, если нужно -->
 </body>
 </html>
