@@ -39,36 +39,54 @@ function updateOrderSummary() {
     let total = 0;
     let orderItems = [];
 
-    // Обходим все поля ввода количества блюд
+    // Проходим по всем полям ввода количества блюд на форме заказа
+    // querySelector ищет все input элементы типа number внутри элементов с классом order-dish
     document.querySelectorAll('.order-dish input[type="number"]').forEach(input => {
+        // Получаем количество каждого блюда, преобразуя строковое значение в число
         const quantity = parseInt(input.value);
+        // Если количество больше 0 (блюдо выбрано)
         if (quantity > 0) {
+            // Получаем название блюда из data-атрибута name
             const name = input.dataset.name;
+            // Получаем цену блюда из data-атрибута price и преобразуем в число
             const price = parseFloat(input.dataset.price);
+            // Рассчитываем общую стоимость за данное блюдо (цена * количество)
             const itemTotal = price * quantity;
+            // Добавляем стоимость блюда к общей сумме заказа
             total += itemTotal;
-            // Формируем строку с информацией о заказанном блюде
+            // Формируем строку с информацией о заказанном блюде и добавляем в массив
+            // Формат: "2x Пицца - 600 руб."
             orderItems.push(`${quantity}x ${name} - ${itemTotal} руб.`);
         }
     });
 
+    // Обновляем HTML элемент, отображающий выбранные позиции
+    // join('<br>') соединяет все элементы массива, разделяя их тегом переноса строки
     selectedItems.innerHTML = orderItems.join('<br>');
+    // Обновляем отображение общей суммы заказа
     totalPriceSpan.textContent = total;
 }
 
 // Add these functions at the top with other utility functions
 
+// Функция закрытия модального окна списка заказов
+// Скрывает модальное окно, изменяя его свойство display на 'none'
 function closeOrdersModal() {
     document.getElementById('orders-modal').style.display = 'none';
 }
 
+// Функция обновления сводки заказов в модальном окне списка заказов
+// Работает аналогично updateOrderSummary, но для другого модального окна
 function updateOrdersSummary() {
+    // Получаем элементы для отображения выбранных позиций и общей суммы
     const selectedItems = document.getElementById('orders-selected-items');
     const totalPriceSpan = document.getElementById('orders-total-price');
     let total = 0;
     let orderItems = [];
 
+    // Находим все поля ввода количества в контейнере orders-categories
     document.querySelectorAll('#orders-categories .order-dish input[type="number"]').forEach(input => {
+        // Аналогичная логика подсчета и формирования строк с информацией о заказе
         const quantity = parseInt(input.value);
         if (quantity > 0) {
             const name = input.dataset.name;
@@ -79,7 +97,9 @@ function updateOrdersSummary() {
         }
     });
 
+    // Обновляем HTML элемент, отображающий выбранные позиции
     selectedItems.innerHTML = orderItems.join('<br>');
+    // Обновляем отображение общей суммы заказа
     totalPriceSpan.textContent = total;
 }
 
@@ -1207,7 +1227,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 // Обработчик закрытия смены (исправленная версия)
-document.querySelector('.tab-button[data-tab="shifts"]').addEventListener("click", async () => {
+async function handleShiftClose() {
     if (confirm("Вы уверены, что хотите закрыть личную смену и выйти?")) {
         const userId = localStorage.getItem("userId");
         try {
@@ -1219,60 +1239,26 @@ document.querySelector('.tab-button[data-tab="shifts"]').addEventListener("click
             if (activeShift) {
                 // Закрываем активную смену
                 const closeResponse = await fetch(`http://localhost:5001/end-shift/${activeShift.id}`, {
-                    method: 'POST'
-                });
-
-                if (closeResponse.ok) {
-                    // Очищаем данные и выходим
-                    localStorage.clear();
-                    window.location.href = "index.html";
-                } else {
-                    alert('Ошибка при закрытии смены');
-                }
-            } else {
-                // Если активной смены нет, просто выходим
-                localStorage.clear();
-                window.location.href = "index.html";
-            }
-        } catch (error) {
-            console.error("Ошибка при закрытии смены:", error);
-            alert("Ошибка при закрытии смены");
-        }
-    }
-});
-
-// ...existing code...
-
-// Заменяем существующий обработчик кнопки "Закрыть личную смену"
-document.querySelector('.tab-button[data-tab="shifts"]').addEventListener("click", async () => {
-    if (confirm("Вы уверены, что хотите закрыть личную смену и выйти?")) {
-        const userId = localStorage.getItem("userId");
-        try {
-            // Получаем активные смены пользователя
-            const response = await fetch(`http://localhost:5001/user-shifts/${userId}`);
-            const shifts = await response.json();
-            const activeShift = shifts.find(shift => shift.status === 'активная смена');
-
-            if (activeShift) {
-                // Сохраняем время выхода
-                const endTime = new Date().toISOString();
-                
-                // Закрываем активную смену с текущим временем
-                const closeResponse = await fetch(`http://localhost:5001/end-shift/${activeShift.id}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ end_time: endTime })
+                    body: JSON.stringify({
+                        end_time: new Date().toISOString()
+                    })
                 });
 
+                const result = await closeResponse.json();
+                
                 if (closeResponse.ok) {
+                    alert('Смена успешно закрыта');
                     localStorage.clear();
                     window.location.href = "index.html";
                 } else {
-                    alert('Ошибка при закрытии смены');
+                    alert(result.error || 'Ошибка при закрытии смены');
                 }
             } else {
+                alert('Активная смена не найдена');
                 localStorage.clear();
                 window.location.href = "index.html";
             }
@@ -1281,7 +1267,12 @@ document.querySelector('.tab-button[data-tab="shifts"]').addEventListener("click
             alert("Ошибка при закрытии смены");
         }
     }
-});
+}
+
+// ...existing code...
+
+// Заменяем существующий обработчик кнопки "Закрыть личную смену"
+document.querySelector('.tab-button[data-tab="shifts"]').addEventListener("click", handleShiftClose);
 
 // ...existing code...
 

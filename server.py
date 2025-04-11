@@ -1,37 +1,41 @@
-from flask import Flask, request, jsonify
-import sqlite3
-from flask_cors import CORS
+# Импорт необходимых библиотек
+from flask import Flask, request, jsonify  # Flask для создания веб-сервера
+import sqlite3  # Для работы с SQLite базой данных
+from flask_cors import CORS  # Для обработки CORS-запросов
 
+# Инициализация Flask приложения
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:8000"}})   # Разрешает запросы с фронта
+# Настройка CORS для разрешения запросов с фронтенда
+CORS(app, resources={r"/*": {"origins": "http://localhost:8000"}})
 
-# Функция для подключения к базе данных SQLite
+# Функция для создания соединения с базой данных
 def connect_db():
+    # Подключение к базе данных с отключением проверки потоков
     return sqlite3.connect("database.db", check_same_thread=False)
 
-# Инициализация базы данных: создание необходимых таблиц
+# Инициализация структуры базы данных
 with connect_db() as db:
-    # Таблица пользователей: хранит информацию о сотрудниках
+    # Создание таблицы пользователей для хранения информации о сотрудниках
     db.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        position TEXT,              
-        fullname TEXT,             
-        worker_code TEXT,          
-        admin_code TEXT            
+        id INTEGER PRIMARY KEY AUTOINCREMENT,  
+        position TEXT,      
+        fullname TEXT,      
+        worker_code TEXT,   
+        admin_code TEXT     
     )''')
 
-    # Таблица категорий блюд
+    # Таблица категорий блюд (например: горячие блюда, супы, напитки)
     db.execute('''CREATE TABLE IF NOT EXISTS categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT                  
+        name TEXT          
     )''')
 
-    # Таблица блюд с ценами
+    # Таблица с информацией о блюдах
     db.execute('''CREATE TABLE IF NOT EXISTS dishes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,                 
-        price REAL,               
-        category_id INTEGER,      
+        name TEXT,        
+        price REAL,       
+        category_id INTEGER,  
         FOREIGN KEY (category_id) REFERENCES categories(id)
     )''')
 
@@ -39,8 +43,8 @@ with connect_db() as db:
     db.execute('''CREATE TABLE IF NOT EXISTS reservations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         table_number INTEGER,      
-        guest_name TEXT,          
-        reservation_date TEXT,    
+        guest_name TEXT,           
+        reservation_date TEXT,     
         status TEXT DEFAULT 'active'  
     )''')
 
@@ -56,7 +60,7 @@ with connect_db() as db:
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         table_number INTEGER,              
         status TEXT DEFAULT 'active',      
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,  
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
         total_price REAL DEFAULT 0         
     )''')
 
@@ -99,7 +103,7 @@ with connect_db() as db:
     
     db.commit()
 
-# Добавление блюда
+# Обработчик для получения всех категорий блюд
 @app.route('/categories', methods=['GET'])
 def get_categories():
     with connect_db() as db:
@@ -108,30 +112,37 @@ def get_categories():
         categories = cursor.fetchall()
     return jsonify([{"id": c[0], "name": c[1]} for c in categories])
 
+# Обработчик для добавления новой категории блюд
 @app.route('/add-category', methods=['POST'])
 def add_category():
-    name = request.json.get("name")
+    name = request.json.get("name")  # Получаем название категории из запроса
     with connect_db() as db:
+        # Добавляем новую категорию в базу данных
         db.execute("INSERT INTO categories (name) VALUES (?)", (name,))
         db.commit()
     return jsonify({"message": "Раздел добавлен"}), 201
 
+# Обработчик для получения блюд определенной категории
 @app.route('/dishes/<int:category_id>', methods=['GET'])
 def get_dishes(category_id):
     with connect_db() as db:
         cursor = db.cursor()
+        # Получаем все блюда выбранной категории
         cursor.execute("SELECT id, name, price FROM dishes WHERE category_id = ?", (category_id,))
         dishes = cursor.fetchall()
+    # Форматируем данные для отправки клиенту
     return jsonify([{"id": d[0], "name": d[1], "price": d[2]} for d in dishes])
 
+# Обработчик для добавления нового блюда
 @app.route('/add-dish', methods=['POST'])
 def add_dish():
     data = request.json
-    name = data.get("name")
-    price = data.get("price")
-    category_id = data.get("categoryId")
+    name = data.get("name")  # Название блюда
+    price = data.get("price")  # Цена блюда
+    category_id = data.get("categoryId")  # ID категории блюда
 
     with connect_db() as db:
+        # Добавляем блюдо в базу данных
         db.execute("INSERT INTO dishes (name, price, category_id) VALUES (?, ?, ?)", (name, price, category_id))
         db.commit()
     return jsonify({"message": "Блюдо добавлено"}), 201
@@ -141,6 +152,7 @@ def add_dish():
 def delete_dish(dish_id):
     with connect_db() as db:
         cursor = db.cursor()
+        # Удаляем блюдо по его ID
         cursor.execute("DELETE FROM dishes WHERE id = ?", (dish_id,))
         db.commit()
     return jsonify({"message": "Блюдо удалено"}), 200
@@ -225,9 +237,6 @@ def login():
             "fullname": user[2]        # Полное имя пользователя
         }
     }), 200
-
-# Примечание: маршруты /users и /users/<int:user_id> удалены,
-# оставлены только маршруты регистрации и входа
 
 # Функция для удаления пользователя из системы
 @app.route('/users/<int:user_id>', methods=['DELETE'])
@@ -359,6 +368,7 @@ def cancel_reservation(table_number):
             return jsonify({"message": "Бронирование отменено"}), 200
         return jsonify({"error": "Бронирование не найдено"}), 404
 
+# Получение статуса стола
 @app.route('/table-status/<int:table_number>', methods=['GET'])
 def get_table_status(table_number):
     with connect_db() as db:
@@ -378,6 +388,7 @@ def get_table_status(table_number):
             return jsonify({"status": "available", "occupied_at": None})
     return jsonify({"status": status[0], "occupied_at": status[1]})
 
+# Обновление статуса стола
 @app.route('/update-table-status/<int:table_number>', methods=['POST'])
 def update_table_status(table_number):
     status = request.json.get('status')
@@ -454,6 +465,7 @@ def get_table_orders(table_number):
         "items": o[4].split(',') if o[4] else []
     } for o in orders]), 200
 
+# Получение всех активных заказов
 @app.route('/all-orders', methods=['GET'])
 def get_all_orders():
     with connect_db() as db:
@@ -478,6 +490,7 @@ def get_all_orders():
         "items": o[5].split(',') if o[5] else []
     } for o in orders]), 200
 
+# Получение деталей заказа
 @app.route('/order-details/<int:order_id>', methods=['GET'])
 def get_order_details(order_id):
     with connect_db() as db:
@@ -508,6 +521,7 @@ def get_order_details(order_id):
         
         return jsonify(order), 200
 
+# Отмена заказа
 @app.route('/cancel-order/<int:order_id>', methods=['POST'])
 def cancel_order(order_id):
     data = request.json
@@ -580,7 +594,7 @@ def start_shift():
     
     with connect_db() as db:
         cursor = db.cursor()
-        # Создаем новую запись смены с текущим временем начала
+        # Создаем запись о начале смены с учетом часового пояса (+3 часа)
         cursor.execute("""
             INSERT INTO shifts (user_id, start_time)
             VALUES (?, datetime('now', '+3 hours'))
@@ -591,23 +605,31 @@ def start_shift():
 # Завершение рабочей смены
 @app.route('/end-shift/<int:shift_id>', methods=['POST'])
 def end_shift(shift_id):
+    data = request.json or {}
+    end_time = data.get('end_time') or 'datetime("now", "+3 hours")'
+    
     with connect_db() as db:
         cursor = db.cursor()
-        # Завершаем смену и рассчитываем оплату (4 рубля в минуту)
+        # Завершаем смену и рассчитываем оплату
         cursor.execute("""
             UPDATE shifts 
-            SET end_time = datetime('now', '+3 hours'),
-                payment = (strftime('%s', datetime('now', '+3 hours')) - strftime('%s', start_time)) / 60.0 * 4
+            SET end_time = ?,
+                payment = (strftime('%s', ?) - strftime('%s', start_time)) / 60.0 * 4
             WHERE id = ? AND end_time IS NULL
-        """, (shift_id,))
+        """, (end_time, end_time, shift_id))
         db.commit()
+        
+        if cursor.rowcount > 0:
+            return jsonify({"message": "Смена успешно закрыта"}), 200
+        return jsonify({"error": "Не удалось закрыть смену"}), 400
 
 # Получение истории смен сотрудника
 @app.route('/user-shifts/<int:user_id>', methods=['GET'])
 def get_user_shifts(user_id):
     with connect_db() as db:
         cursor = db.cursor()
-        # Получаем все смены сотрудника с расчетом оплаты
+        # Получаем все смены с расчетом оплаты
+        # Для активных смен оплата не рассчитывается
         cursor.execute("""
             SELECT 
                 id,
@@ -628,6 +650,7 @@ def get_user_shifts(user_id):
         """, (user_id,))
         shifts = cursor.fetchall()
         
+        # Форматируем данные для отправки
         return jsonify([{
             "id": shift[0],
             "start_time": shift[1],
@@ -636,5 +659,6 @@ def get_user_shifts(user_id):
             "payment": round(shift[4], 2) if shift[4] is not None else None
         } for shift in shifts]), 200
 
+# Запуск сервера в режиме отладки на порту 5001
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
